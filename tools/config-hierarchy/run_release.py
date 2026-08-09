@@ -61,6 +61,16 @@ def atomic_download(url, destination):
     return {"sha256": digest.hexdigest(), "headers": headers, "size": destination.stat().st_size}
 
 
+def remote_headers(url):
+    request = urllib.request.Request(url, method="HEAD")
+    with urllib.request.urlopen(request) as response:
+        return {
+            "etag": response.headers.get("ETag"),
+            "last_modified": response.headers.get("Last-Modified"),
+            "content_length": response.headers.get("Content-Length"),
+        }
+
+
 def write_provenance(
     *,
     date,
@@ -71,6 +81,7 @@ def write_provenance(
     previous_version_code,
     state_path,
     asset_path,
+    upstream_apk_remote=None,
 ):
     embedded = {
         "schema": 1,
@@ -80,6 +91,8 @@ def write_provenance(
         "patch_revision": patch_revision,
     }
     state = {**embedded, "date": date, "version_code": int(previous_version_code)}
+    if upstream_apk_remote:
+        state["upstream_apk_remote"] = upstream_apk_remote
     state_path = Path(state_path)
     asset_path = Path(asset_path)
     state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -209,6 +222,7 @@ def _write_json(path, value):
 
 def command_discover(args):
     state = load_state(args.state)
+    nightly_pipeline.check_processed_remote_metadata(state, remote_headers)
     with urllib.request.urlopen(args.index_url) as response:
         html = response.read().decode("utf-8", errors="replace")
     pairs = nightly_pipeline.discover_pairs(html, args.index_url)
@@ -226,8 +240,8 @@ def command_download(args):
     normal = directory / f"{args.date}-RetroArch.apk"
     aarch64 = directory / f"{args.date}-RetroArch_aarch64.apk"
     output = {
-        "normal": atomic_download(args.normal_url, normal),
-        "aarch64": atomic_download(args.aarch64_url, aarch64),
+        "normal": {**atomic_download(args.normal_url, normal), "url": args.normal_url},
+        "aarch64": {**atomic_download(args.aarch64_url, aarch64), "url": args.aarch64_url},
         "normal_path": str(normal),
         "aarch64_path": str(aarch64),
     }
@@ -252,6 +266,16 @@ def command_resolve(args):
 
 
 def command_provenance(args):
+    upstream_apk_remote = None
+    if args.download_metadata:
+        downloaded = load_state(args.download_metadata)
+        upstream_apk_remote = {
+            variant: {
+                "url": downloaded[variant]["url"],
+                **downloaded[variant]["headers"],
+            }
+            for variant in ("normal", "aarch64")
+        }
     state = write_provenance(
         date=args.date,
         upstream_revision=args.upstream_revision,
@@ -261,6 +285,7 @@ def command_provenance(args):
         previous_version_code=args.version_code,
         state_path=args.state,
         asset_path=args.asset,
+        upstream_apk_remote=upstream_apk_remote,
     )
     print(json.dumps(state, sort_keys=True))
 
@@ -342,6 +367,7 @@ def build_parser():
     provenance.add_argument("--version-code", type=int, required=True)
     provenance.add_argument("--state", type=Path, required=True)
     provenance.add_argument("--asset", type=Path, required=True)
+    provenance.add_argument("--download-metadata", type=Path)
     provenance.set_defaults(function=command_provenance)
 
     aliases = subparsers.add_parser("aliases")
