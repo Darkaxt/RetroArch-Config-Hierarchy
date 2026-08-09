@@ -6,7 +6,7 @@ Design under test: `docs/superpowers/specs/2026-08-10-retroarch-config-hierarchy
 
 ## Automated evidence
 
-- `python -m unittest discover -s tools/config-hierarchy/tests -v`: 26 tests passed.
+- `python -m unittest discover -s tools/config-hierarchy/tests -v`: 29 tests passed.
 - `actionlint .github/workflows/config-hierarchy-nightly.yml`: passed.
 - Gradle release-signing preflight with missing signer inputs: failed during configuration as required; debug signing was not used.
 - Signed Gradle matrix (`test`, both Play release compile checks, `assembleNormalRelease`, and `assembleAarch64Release`): 245 tasks completed successfully in one invocation.
@@ -34,7 +34,11 @@ The signed validation build used the full asset payload extracted from the valid
 
 ## Live upstream provenance check
 
-The latest completed official pair available during validation was dated 2026-08-09. Both APKs embed short revision `31c4e00`, but that revision does not resolve in `libretro/RetroArch`. The implemented workflow therefore stops before rebase, signing, branch advancement, or release creation. This is the required failure behavior; it prevents an unverifiable approximation of the upstream nightly.
+Local validation of the latest completed official pair available at the time (`2026-08-09`) found that both APKs embed short revision `31c4e00`, which does not resolve in `libretro/RetroArch`.
+
+After GitHub activation, workflow-dispatch run `31340197569` exercised the monitor from its initially empty state. It downloaded and structurally validated the oldest archived complete pair (`2026-07-27`), found matching embedded revision `14b958d`, and failed at exact-source resolution because that revision is also absent from the public upstream repository. It created no release or staging ref and left `main` unchanged. The archive state is now seeded at `2026-08-09`, the activation baseline, so scheduled runs mirror future completed nightlies without trying to retroactively publish an unverifiable backlog.
+
+Both checks demonstrate the required failure behavior: the workflow stops before rebase, signing, branch advancement, or release creation rather than approximating an upstream nightly.
 
 ## Remaining first-release gates
 

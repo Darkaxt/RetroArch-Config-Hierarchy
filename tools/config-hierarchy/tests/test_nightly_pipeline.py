@@ -69,6 +69,56 @@ class NightlyDiscoveryTests(unittest.TestCase):
                 "2026-08-09", {"normal": "changed", "aarch64": "two"}, state
             )
 
+    def test_changed_processed_remote_metadata_is_rejected(self):
+        state = {
+            "date": "2026-08-09",
+            "upstream_apk_remote": {
+                "normal": {
+                    "url": "https://example/RetroArch.apk",
+                    "etag": "old",
+                    "last_modified": "yesterday",
+                    "content_length": "100",
+                },
+                "aarch64": {
+                    "url": "https://example/RetroArch_aarch64.apk",
+                    "etag": "same",
+                    "last_modified": "yesterday",
+                    "content_length": "90",
+                },
+            },
+        }
+
+        def lookup(url):
+            variant = "aarch64" if "aarch64" in url else "normal"
+            actual = state["upstream_apk_remote"][variant].copy()
+            if variant == "normal":
+                actual["etag"] = "replacement"
+            return actual
+
+        with self.assertRaisesRegex(nightly_pipeline.ProvenanceError, "metadata changed"):
+            nightly_pipeline.check_processed_remote_metadata(state, lookup)
+
+    def test_matching_processed_remote_metadata_is_allowed(self):
+        metadata = {
+            "url": "https://example/RetroArch.apk",
+            "etag": "same",
+            "last_modified": "today",
+            "content_length": "100",
+        }
+        state = {
+            "date": "2026-08-09",
+            "upstream_apk_remote": {
+                "normal": metadata,
+                "aarch64": {**metadata, "url": "https://example/RetroArch_aarch64.apk"},
+            },
+        }
+        nightly_pipeline.check_processed_remote_metadata(
+            state,
+            lambda url: state["upstream_apk_remote"][
+                "aarch64" if "aarch64" in url else "normal"
+            ],
+        )
+
 
 class ElfRevisionTests(unittest.TestCase):
     def test_extracts_revision_from_named_elf_symbol(self):
@@ -203,6 +253,38 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             self.assertEqual("a" * 40, embedded["upstream_revision"])
             self.assertEqual("public-config-v1", embedded["patch_revision"])
             self.assertNotIn("previous_version_code", embedded)
+
+    def test_provenance_state_records_upstream_remote_identity(self):
+        remote = {
+            "normal": {
+                "url": "https://example/RetroArch.apk",
+                "etag": "normal-etag",
+                "last_modified": "today",
+                "content_length": "100",
+            },
+            "aarch64": {
+                "url": "https://example/RetroArch_aarch64.apk",
+                "etag": "aarch64-etag",
+                "last_modified": "today",
+                "content_length": "90",
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            state = run_release.write_provenance(
+                date="2026-08-09",
+                upstream_revision="a" * 40,
+                normal_hash="normal-hash",
+                aarch64_hash="aarch64-hash",
+                patch_revision="public-config-v1",
+                previous_version_code=123,
+                state_path=directory / "state.json",
+                asset_path=directory / "provenance.json",
+                upstream_apk_remote=remote,
+            )
+            self.assertEqual(remote, state["upstream_apk_remote"])
+            embedded = json.loads((directory / "provenance.json").read_text())
+            self.assertNotIn("upstream_apk_remote", embedded)
 
     def test_metadata_commit_is_amended_after_first_release(self):
         self.assertEqual("commit", run_release.metadata_commit_action("automation: pipeline"))
