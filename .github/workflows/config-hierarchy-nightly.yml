@@ -29,14 +29,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
-          cache-dependency-path: pkg/android/phoenix/gradle/wrapper/gradle-wrapper.properties
-
       - name: Discover first unprocessed completed upstream pair
         id: discovery
         shell: bash
@@ -52,6 +44,15 @@ jobs:
             echo "normal_url=$(jq -r '.normal_url' "$RUNNER_TEMP/discovery.json")" >> "$GITHUB_OUTPUT"
             echo "aarch64_url=$(jq -r '.aarch64_url' "$RUNNER_TEMP/discovery.json")" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Set up Java
+        if: steps.discovery.outputs.ready == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: pkg/android/phoenix/gradle/wrapper/gradle-wrapper.properties
 
       - name: Download and structurally validate upstream APK pair
         if: steps.discovery.outputs.ready == 'true'
