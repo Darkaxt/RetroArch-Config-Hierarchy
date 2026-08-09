@@ -58,9 +58,23 @@ public final class ConfigPathPolicy
    {
    }
 
+   public static File publicConfigDirectory(File sharedStorageRoot)
+   {
+      return new File(sharedStorageRoot, "RetroArch");
+   }
+
    public static Result resolve(StoragePolicy storagePolicy, File publicDirectory,
          File legacyExternalDirectory, File legacyInternalDirectory,
          File legacyFallbackDirectory, String fileName) throws IOException
+   {
+      return resolve(storagePolicy, publicDirectory, null, legacyExternalDirectory,
+            legacyInternalDirectory, legacyFallbackDirectory, fileName);
+   }
+
+   public static Result resolve(StoragePolicy storagePolicy, File publicDirectory,
+         File alternatePublicDirectory, File legacyExternalDirectory,
+         File legacyInternalDirectory, File legacyFallbackDirectory,
+         String fileName) throws IOException
    {
       validateFileName(fileName);
 
@@ -77,8 +91,8 @@ public final class ConfigPathPolicy
       if (existing != null)
          return existing;
 
-      File source = firstLegacySource(fileName, legacyExternalDirectory,
-            legacyInternalDirectory, legacyFallbackDirectory);
+      File source = firstLegacySource(fileName, alternatePublicDirectory,
+            legacyExternalDirectory, legacyInternalDirectory, legacyFallbackDirectory);
       if (source != null)
          return migrate(source, destination);
 

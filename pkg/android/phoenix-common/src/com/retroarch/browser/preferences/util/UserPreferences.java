@@ -81,18 +81,21 @@ public final class UserPreferences
 				? ConfigPathPolicy.StoragePolicy.APP_SPECIFIC
 				: ConfigPathPolicy.StoragePolicy.PUBLIC;
 		File publicDirectory = null;
+		File alternatePublicDirectory = null;
 		if (!BuildConfig.PLAY_STORE_BUILD)
 		{
 			if (!android.os.Environment.MEDIA_MOUNTED.equals(state))
 				throw new IllegalStateException("Shared storage is not mounted");
-			publicDirectory = new File(android.os.Environment.getExternalStorageDirectory(),
-					"RetroArch" + File.separator + "config");
+			publicDirectory = ConfigPathPolicy.publicConfigDirectory(
+					android.os.Environment.getExternalStorageDirectory());
+			alternatePublicDirectory = new File(publicDirectory, "config");
 		}
 
 		try
 		{
-			return ConfigPathPolicy.resolve(storagePolicy, publicDirectory, external,
-					internal, new File("/mnt/extsd"), fileName);
+			return ConfigPathPolicy.resolve(storagePolicy, publicDirectory,
+					alternatePublicDirectory, external, internal,
+					new File("/mnt/extsd"), fileName);
 		}
 		catch (IOException e)
 		{

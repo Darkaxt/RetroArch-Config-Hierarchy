@@ -24,6 +24,35 @@ public class ConfigPathPolicyTest
    public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
    @Test
+   public void publicConfigDirectoryUsesEstablishedRetroArchRoot() throws Exception
+   {
+      File sharedStorage = temporaryFolder.newFolder("shared-storage");
+
+      assertEquals(new File(sharedStorage, "RetroArch").getCanonicalFile(),
+            ConfigPathPolicy.publicConfigDirectory(sharedStorage).getCanonicalFile());
+   }
+
+   @Test
+   public void alternatePublicConfigMigratesToEstablishedRoot() throws Exception
+   {
+      File sharedStorage = temporaryFolder.newFolder("shared-storage-fallback");
+      File publicDir = new File(sharedStorage, "RetroArch");
+      File alternatePublicDir = new File(publicDir, "config");
+      assertTrue(alternatePublicDir.mkdirs());
+      byte[] alternate = "source = alternate-public\n".getBytes(StandardCharsets.UTF_8);
+      Files.write(new File(alternatePublicDir, "retroarch.cfg").toPath(), alternate);
+
+      ConfigPathPolicy.Result result = ConfigPathPolicy.resolve(
+            ConfigPathPolicy.StoragePolicy.PUBLIC, publicDir, alternatePublicDir,
+            null, null, null, "retroarch.cfg");
+
+      assertEquals(ConfigPathPolicy.Outcome.MIGRATED, result.outcome());
+      assertEquals(new File(publicDir, "retroarch.cfg").getCanonicalFile(),
+            result.file().getCanonicalFile());
+      assertArrayEquals(alternate, Files.readAllBytes(result.file().toPath()));
+   }
+
+   @Test
    public void existingPublicConfigWinsAndRemainsUntouched() throws Exception
    {
       File publicDir = temporaryFolder.newFolder("public");
