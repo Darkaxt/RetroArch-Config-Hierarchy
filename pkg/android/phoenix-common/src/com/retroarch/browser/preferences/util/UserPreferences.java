@@ -3,6 +3,8 @@ package com.retroarch.browser.preferences.util;
 import java.io.File;
 import java.io.IOException;
 
+import com.retroarch.BuildConfig;
+
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -35,16 +37,22 @@ public final class UserPreferences
 	 */
 	public static String getDefaultConfigPath(Context ctx)
 	{
-		// Internal/External storage dirs.
-		final String internal = ctx.getFilesDir().getAbsolutePath();
-		String external = null;
+		return resolveDefaultConfig(ctx).file().getAbsolutePath();
+	}
+
+	/**
+	 * Resolves the default config and reports whether it already existed, was
+	 * migrated, or was freshly initialized.
+	 */
+	public static ConfigPathPolicy.Result resolveDefaultConfig(Context ctx)
+	{
+		final File internal = ctx.getFilesDir();
+		File external = null;
 
 		// Get the App's external storage folder
 		final String state = android.os.Environment.getExternalStorageState();
-		if (android.os.Environment.MEDIA_MOUNTED.equals(state)) {
-			File extsd = ctx.getExternalFilesDir(null);
-			external = extsd.getAbsolutePath();
-		}
+		if (android.os.Environment.MEDIA_MOUNTED.equals(state))
+			external = ctx.getExternalFilesDir(null);
 
 		// Native library directory and data directory for this front-end.
 		final String dataDir = ctx.getApplicationInfo().dataDir;
@@ -57,57 +65,39 @@ public final class UserPreferences
 		// Check if global config is being used. Return true upon failure.
 		final boolean globalConfigEnabled = prefs.getBoolean("global_config_enable", true);
 
-		String append_path;
+		String fileName;
 		// If we aren't using the global config.
 		if (!globalConfigEnabled && !libretro_path.equals(coreDir))
 		{
 			String sanitized_name = sanitizeLibretroPath(libretro_path);
-			append_path = File.separator + sanitized_name + ".cfg";
+			fileName = sanitized_name + ".cfg";
 		}
 		else // Using global config.
 		{
-			append_path = File.separator + "retroarch.cfg";
+			fileName = "retroarch.cfg";
 		}
 
-		if (external != null)
+		ConfigPathPolicy.StoragePolicy storagePolicy = BuildConfig.PLAY_STORE_BUILD
+				? ConfigPathPolicy.StoragePolicy.APP_SPECIFIC
+				: ConfigPathPolicy.StoragePolicy.PUBLIC;
+		File publicDirectory = null;
+		if (!BuildConfig.PLAY_STORE_BUILD)
 		{
-			String confPath = external + append_path;
-			if (new File(confPath).exists())
-				return confPath;
+			if (!android.os.Environment.MEDIA_MOUNTED.equals(state))
+				throw new IllegalStateException("Shared storage is not mounted");
+			publicDirectory = new File(android.os.Environment.getExternalStorageDirectory(),
+					"RetroArch" + File.separator + "config");
 		}
-		else if (internal != null)
+
+		try
 		{
-			String confPath = internal + append_path;
-			if (new File(confPath).exists())
-				return confPath;
-		}
-		else
-		{
-			String confPath = "/mnt/extsd" + append_path;
-			if (new File(confPath).exists())
-				return confPath;
-		}
-
-		// Config file does not exist. Create empty one.
-
-		// emergency fallback
-		String new_path = "/mnt/sd" + append_path;
-
-		if (external != null)
-			new_path = external + append_path;
-		else if (internal != null)
-			new_path = internal + append_path;
-		else if (dataDir != null)
-			new_path = dataDir + append_path;
-
-		try {
-			new File(new_path).createNewFile();
+			return ConfigPathPolicy.resolve(storagePolicy, publicDirectory, external,
+					internal, new File("/mnt/extsd"), fileName);
 		}
 		catch (IOException e)
 		{
-			Log.e(TAG, "Failed to create config file to: " + new_path);
+			throw new IllegalStateException("Failed to resolve RetroArch config", e);
 		}
-		return new_path;
 	}
 
 	/**
@@ -118,7 +108,12 @@ public final class UserPreferences
 	 */
 	public static void updateConfigFile(Context ctx)
 	{
-		String path = getDefaultConfigPath(ctx);
+		updateConfigFile(ctx, getDefaultConfigPath(ctx));
+	}
+
+	/** Updates Android-specific values in an already selected config. */
+	public static void updateConfigFile(Context ctx, String path)
+	{
 		ConfigFile config = new ConfigFile(path);
 
 		final String dataDir = ctx.getApplicationInfo().dataDir;
@@ -171,7 +166,7 @@ public final class UserPreferences
 		}
 		catch (IOException e)
 		{
-			Log.e(TAG, "Failed to save config file to: " + path);
+			throw new IllegalStateException("Failed to save config file to: " + path, e);
 		}
 	}
 
