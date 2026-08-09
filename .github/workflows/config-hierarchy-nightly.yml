@@ -1,0 +1,283 @@
+name: RetroArch Config Hierarchy Nightly
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: config-hierarchy-nightly
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_INDEX: https://buildbot.libretro.com/nightly/android/
+  UPSTREAM_REPOSITORY: https://github.com/libretro/RetroArch.git
+  PATCH_ID_FILE: config-hierarchy/patch-identity.txt
+  STATE_FILE: config-hierarchy/release-state.json
+  PROVENANCE_ASSET: pkg/android/phoenix/assets/config-hierarchy-provenance.json
+
+jobs:
+  monitor-build-publish:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out maintained patch stack
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: pkg/android/phoenix/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Discover first unprocessed completed upstream pair
+        id: discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/config-hierarchy/run_release.py discover \
+            --index-url "$UPSTREAM_INDEX" \
+            --state "$STATE_FILE" > "$RUNNER_TEMP/discovery.json"
+          cat "$RUNNER_TEMP/discovery.json"
+          echo "ready=$(jq -r '.ready' "$RUNNER_TEMP/discovery.json")" >> "$GITHUB_OUTPUT"
+          if [[ "$(jq -r '.ready' "$RUNNER_TEMP/discovery.json")" == "true" ]]; then
+            echo "date=$(jq -r '.date' "$RUNNER_TEMP/discovery.json")" >> "$GITHUB_OUTPUT"
+            echo "normal_url=$(jq -r '.normal_url' "$RUNNER_TEMP/discovery.json")" >> "$GITHUB_OUTPUT"
+            echo "aarch64_url=$(jq -r '.aarch64_url' "$RUNNER_TEMP/discovery.json")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download and structurally validate upstream APK pair
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/upstream"
+          python3 tools/config-hierarchy/run_release.py download \
+            --date "${{ steps.discovery.outputs.date }}" \
+            --normal-url "${{ steps.discovery.outputs.normal_url }}" \
+            --aarch64-url "${{ steps.discovery.outputs.aarch64_url }}" \
+            --directory "$RUNNER_TEMP/upstream" > "$RUNNER_TEMP/download.json"
+          cat "$RUNNER_TEMP/download.json"
+
+      - name: Resolve exact source revision embedded in both upstream APKs
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git remote get-url upstream >/dev/null 2>&1 || git remote add upstream "$UPSTREAM_REPOSITORY"
+          git fetch --force --tags upstream master
+          previous_revision="$(jq -r '.last_state.upstream_revision // empty' "$RUNNER_TEMP/discovery.json")"
+          python3 tools/config-hierarchy/run_release.py resolve \
+            --normal-apk "$(jq -r '.normal_path' "$RUNNER_TEMP/download.json")" \
+            --aarch64-apk "$(jq -r '.aarch64_path' "$RUNNER_TEMP/download.json")" \
+            --previous-revision "$previous_revision" > "$RUNNER_TEMP/resolution.json"
+          cat "$RUNNER_TEMP/resolution.json"
+          echo "UPSTREAM_REVISION=$(jq -r '.upstream_revision' "$RUNNER_TEMP/resolution.json")" >> "$GITHUB_ENV"
+
+      - name: Rebase maintained patch stack onto proven upstream source
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ORIGINAL_BRANCH=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          echo "ORIGINAL_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          base_revision="$(git merge-base HEAD "$UPSTREAM_REVISION")"
+          git merge-base --is-ancestor "$base_revision" "$UPSTREAM_REVISION"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rebase --onto "$UPSTREAM_REVISION" "$base_revision"
+
+      - name: Embed exact provenance and reuse upstream packaged assets
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_code="$(python3 tools/config-hierarchy/run_release.py version-code --state "$STATE_FILE")"
+          patch_revision="$(tr -d '\r\n' < "$PATCH_ID_FILE")"
+          python3 tools/config-hierarchy/run_release.py provenance \
+            --date "${{ steps.discovery.outputs.date }}" \
+            --upstream-revision "$UPSTREAM_REVISION" \
+            --normal-hash "$(jq -r '.normal.sha256' "$RUNNER_TEMP/download.json")" \
+            --aarch64-hash "$(jq -r '.aarch64.sha256' "$RUNNER_TEMP/download.json")" \
+            --patch-revision "$patch_revision" \
+            --version-code "$version_code" \
+            --state "$STATE_FILE" \
+            --asset "$PROVENANCE_ASSET"
+          git add "$STATE_FILE"
+          git add -f "$PROVENANCE_ASSET"
+          if [[ "$(git log -1 --format=%s)" == "release: nightly metadata" ]]; then
+            git commit --amend --no-edit
+          else
+            git commit -m "release: nightly metadata"
+          fi
+          python3 tools/config-hierarchy/run_release.py extract-assets \
+            --apk "$(jq -r '.normal_path' "$RUNNER_TEMP/download.json")" \
+            --target pkg/android/phoenix/assets
+          echo "CONFIG_HIERARCHY_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
+          echo "FORK_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "PATCH_REVISION=$patch_revision" >> "$GITHUB_ENV"
+
+      - name: Install required Android SDK components
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install \
+            'platforms;android-36' \
+            'build-tools;36.0.0' \
+            'ndk;29.0.14206865'
+
+      - name: Materialize and verify permanent fork signer
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export RELEASE_STORE_FILE="$RUNNER_TEMP/retroarch-config-hierarchy-release.p12"
+          python3 tools/config-hierarchy/run_release.py signer-preflight \
+            --keystore "$RELEASE_STORE_FILE"
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_STORE_FILE"
+          keytool -exportcert -rfc \
+            -keystore "$RELEASE_STORE_FILE" \
+            -storepass "$RELEASE_STORE_PASSWORD" \
+            -alias "$RELEASE_KEY_ALIAS" > "$RUNNER_TEMP/signer.pem"
+          actual_signer="$(openssl x509 -in "$RUNNER_TEMP/signer.pem" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':\r\n' | tr '[:lower:]' '[:upper:]')"
+          expected_signer="$(tr -d '[:space:]' < config-hierarchy/signer-certificate-sha256.txt | tr '[:lower:]' '[:upper:]')"
+          [[ "$actual_signer" == "$expected_signer" ]]
+          echo "RELEASE_STORE_FILE=$RELEASE_STORE_FILE" >> "$GITHUB_ENV"
+          echo "SIGNER_SHA256=$expected_signer" >> "$GITHUB_ENV"
+
+      - name: Test and build both signed release variants together
+        if: steps.discovery.outputs.ready == 'true'
+        working-directory: pkg/android/phoenix
+        shell: bash
+        env:
+          CONFIG_HIERARCHY_RELEASE: 'true'
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew \
+            test \
+            compilePlayStoreNormalReleaseJavaWithJavac \
+            compilePlayStorePlusReleaseJavaWithJavac \
+            assembleNormalRelease \
+            assembleAarch64Release \
+            --console=plain
+
+      - name: Verify packages, ABIs, versions, signer, provenance and aliases
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          release_dir="$RUNNER_TEMP/release"
+          mkdir -p "$release_dir"
+          cp pkg/android/phoenix/build/outputs/apk/normal/release/phoenix-normal-release.apk \
+            "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch.apk"
+          cp pkg/android/phoenix/build/outputs/apk/aarch64/release/phoenix-aarch64-release.apk \
+            "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch_aarch64.apk"
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+          export CONFIG_HIERARCHY_RELEASE=true
+          python3 tools/config-hierarchy/verify_release.py \
+            --apk "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch.apk" \
+            --package com.retroarch \
+            --abis armeabi-v7a,arm64-v8a,x86,x86_64 \
+            --signer "$SIGNER_SHA256" \
+            --fork-revision "$FORK_REVISION" \
+            --upstream-revision "$UPSTREAM_REVISION" \
+            --patch-revision "$PATCH_REVISION" \
+            --aapt "$build_tools/aapt" \
+            --apksigner "$build_tools/apksigner" \
+            --zipalign "$build_tools/zipalign" > "$RUNNER_TEMP/normal-verification.json"
+          python3 tools/config-hierarchy/verify_release.py \
+            --apk "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch_aarch64.apk" \
+            --package com.retroarch.aarch64 \
+            --abis arm64-v8a,x86_64 \
+            --signer "$SIGNER_SHA256" \
+            --fork-revision "$FORK_REVISION" \
+            --upstream-revision "$UPSTREAM_REVISION" \
+            --patch-revision "$PATCH_REVISION" \
+            --aapt "$build_tools/aapt" \
+            --apksigner "$build_tools/apksigner" \
+            --zipalign "$build_tools/zipalign" > "$RUNNER_TEMP/aarch64-verification.json"
+          python3 tools/config-hierarchy/run_release.py aliases \
+            --date "${{ steps.discovery.outputs.date }}" \
+            --directory "$release_dir" > "$RUNNER_TEMP/assets.json"
+          python3 tools/config-hierarchy/run_release.py release-metadata \
+            --state "$STATE_FILE" \
+            --normal-verification "$RUNNER_TEMP/normal-verification.json" \
+            --aarch64-verification "$RUNNER_TEMP/aarch64-verification.json" \
+            --assets "$RUNNER_TEMP/assets.json" \
+            --fork-revision "$FORK_REVISION" \
+            --output "$RUNNER_TEMP/release-metadata.json"
+          python3 tools/config-hierarchy/run_release.py notes \
+            --metadata "$RUNNER_TEMP/release-metadata.json" \
+            --output "$RUNNER_TEMP/release-notes.md"
+
+      - name: Draft, re-download, and transactionally publish prerelease
+        if: steps.discovery.outputs.ready == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          date='${{ steps.discovery.outputs.date }}'
+          tag="nightly-${date}-${UPSTREAM_REVISION:0:7}"
+          staging_branch="config-hierarchy-staging/${date}-${GITHUB_RUN_ID}"
+          release_dir="$RUNNER_TEMP/release"
+          branch_advanced=false
+
+          cleanup() {
+            status=$?
+            set +e
+            gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1
+            git push origin --delete "$staging_branch" >/dev/null 2>&1
+            if [[ "$branch_advanced" == "true" ]]; then
+              git push --force-with-lease="refs/heads/${ORIGINAL_BRANCH}:${FORK_REVISION}" \
+                origin "${ORIGINAL_REVISION}:refs/heads/${ORIGINAL_BRANCH}" >/dev/null 2>&1
+            fi
+            exit "$status"
+          }
+          trap cleanup ERR
+
+          git push origin "HEAD:refs/heads/$staging_branch"
+          gh release create "$tag" \
+            --target "$FORK_REVISION" \
+            --title "RetroArch Config Hierarchy ${date}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --draft \
+            --prerelease \
+            "$release_dir/${date}-RetroArch.apk" \
+            "$release_dir/${date}-RetroArch_aarch64.apk" \
+            "$release_dir/RetroArch.apk" \
+            "$release_dir/RetroArch_aarch64.apk"
+
+          redownload="$RUNNER_TEMP/redownload"
+          mkdir -p "$redownload"
+          gh release download "$tag" --dir "$redownload"
+          python3 tools/config-hierarchy/run_release.py verify-assets \
+            --directory "$redownload" \
+            --manifest "$RUNNER_TEMP/assets.json"
+
+          git push --force-with-lease="refs/heads/${ORIGINAL_BRANCH}:${ORIGINAL_REVISION}" \
+            origin "HEAD:refs/heads/${ORIGINAL_BRANCH}"
+          branch_advanced=true
+          gh release edit "$tag" --draft=false --prerelease
+          git push origin --delete "$staging_branch"
+          trap - ERR
