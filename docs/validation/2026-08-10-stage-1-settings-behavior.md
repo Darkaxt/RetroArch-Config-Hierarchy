@@ -29,6 +29,18 @@ The initial TDD run failed at `compileNormalDebugUnitTestJavaWithJavac` because 
 | Native config, override, core-option, and remap semantics remain unchanged | No native C/C++ files or subordinate config-directory logic changed. | Diff validated |
 | No reusable Thor migration script | None was added; the design's manual checklist remains authoritative. | Diff validated |
 
+## AYN Thor pre-deployment migration evidence
+
+The rooted device migration was performed manually while the official `com.retroarch.aarch64` process was stopped. No APK was installed, uninstalled, or launched as part of the migration.
+
+- Private source: `/storage/emulated/0/Android/data/com.retroarch.aarch64/files/retroarch.cfg`
+- Public destination: `/storage/emulated/0/RetroArch/retroarch.cfg`
+- Source and destination: 117,116 bytes each, byte-identical, SHA-256 `903ff26d016c3f96db6012dbd481b5acc1b2323b3111b436ac2b3ae24a34695a`
+- Preserved prior public file: `/storage/emulated/0/RetroArch/retroarch.cfg.pre-config-hierarchy-migration-2026-08-10`
+- Preserved file: 4,151 bytes, SHA-256 `4179d04fc3cb5fe9f27c88e0338981e666c65b4f1230dfccdab9439243edb21e`
+- Alternate fallback `/storage/emulated/0/RetroArch/config/retroarch.cfg`: absent
+- Same-directory migration temporary file: absent after publication
+
 ## Deferred device gates
 
 The following acceptance checks require the first manually prepared Thor deployment and are intentionally not claimed by this source/build validation:
