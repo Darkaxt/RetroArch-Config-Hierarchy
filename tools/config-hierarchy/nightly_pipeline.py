@@ -72,3 +72,23 @@ def check_processed_pair(date, apk_hashes, state):
         raise ProvenanceError(
             f"Upstream replaced already processed nightly {date}; manual review is required"
         )
+
+
+def check_processed_remote_metadata(state, lookup):
+    remote = state.get("upstream_apk_remote") if state else None
+    if not remote:
+        return
+
+    for variant in ("normal", "aarch64"):
+        expected = remote.get(variant)
+        if not expected:
+            raise ProvenanceError(
+                f"Processed nightly lacks {variant} remote provenance; manual review is required"
+            )
+        actual = lookup(expected["url"])
+        for field in ("etag", "last_modified", "content_length"):
+            if actual.get(field) != expected.get(field):
+                raise ProvenanceError(
+                    "Upstream metadata changed for already processed nightly "
+                    f"{state.get('date')} {variant}; manual provenance review is required"
+                )
