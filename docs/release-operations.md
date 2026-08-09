@@ -78,7 +78,7 @@ There is intentionally no migration or deployment script. Perform this once, man
 1. Identify the installed official package and signer.
 2. Quit RetroArch normally so save-on-exit completes.
 3. With root, identify the actual active master config.
-4. If the public destination exists, preserve it and review the difference manually. Otherwise copy the active config to `/storage/emulated/0/RetroArch/config/retroarch.cfg`.
+4. If `/storage/emulated/0/RetroArch/retroarch.cfg` exists, preserve it and review the difference manually. Otherwise copy the active config there. The fork also accepts `/storage/emulated/0/RetroArch/config/retroarch.cfg` as a migration fallback when the primary file is absent.
 5. Verify source/destination byte count and SHA-256.
 6. Inspect `rgui_config_directory`, `input_remapping_directory`, and `core_options_path`; move subordinate files only when an active private path is proven and separately reviewed.
 7. Uninstall the official APK only after verification, then confirm the public config and hash survived.
