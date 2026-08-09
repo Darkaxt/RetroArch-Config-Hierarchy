@@ -26,6 +26,8 @@
 .moc.h
 .moc.cpp
 *.log
+__pycache__/
+*.py[cod]
 /.project
 /.externalToolBuilders/
 /retroarch
@@ -146,6 +148,9 @@ wiiu/wut/elf2rpl/elf2rpl
 .run
 
 # Android
+*.jks
+*.keystore
+*.p12
 /pkg/android/phoenix/obj/
 /pkg/android/phoenix/assets/
 /pkg/android/phoenix/libs/
