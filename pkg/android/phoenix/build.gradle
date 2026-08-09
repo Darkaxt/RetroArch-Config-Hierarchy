@@ -135,9 +135,13 @@ android {
       manifest.srcFile 'AndroidManifest.xml'
       assets.srcDirs = ['assets']
       java.srcDirs = ['src', '../phoenix-common/src', '../../../libretro-common/vfs/saf/src']
+      java.exclude 'test/**'
       jniLibs.srcDir '../phoenix-common/libs'
       jni.srcDirs = []
       res.srcDirs = ['res', '../phoenix-common/res']
+    }
+    test {
+      java.srcDirs = ['src/test/java']
     }
     normal {
       java.srcDirs += ['../play-core-stub']
@@ -192,6 +196,7 @@ def playFeatureDelivery = 'com.google.android.play:feature-delivery:2.1.0'
 def playAssetDelivery = 'com.google.android.play:asset-delivery:2.2.2'
 
 dependencies {
+  testImplementation 'junit:junit:4.13.2'
   playStoreNormalImplementation playFeatureDelivery
   playStoreNormalImplementation playAssetDelivery
   playStorePlusImplementation playFeatureDelivery

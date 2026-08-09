@@ -1,6 +1,7 @@
 package com.retroarch.browser.mainmenu;
 
 import com.retroarch.BuildConfig;
+import com.retroarch.browser.preferences.util.ActiveConfigPath;
 import com.retroarch.browser.preferences.util.UserPreferences;
 import com.retroarch.browser.retroactivity.RetroActivityFuture;
 
@@ -33,6 +34,7 @@ public final class MainMenuActivity extends PreferenceActivity
 	final private int REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS = 124;
 	public static String PACKAGE_NAME;
 	boolean checkPermissions = false;
+	private boolean startupCompleted = false;
 
 	public void showMessageOKCancel(String message, DialogInterface.OnClickListener onClickListener)
 	{
@@ -168,6 +170,9 @@ public final class MainMenuActivity extends PreferenceActivity
 
 	public void finalStartup()
 	{
+		if (startupCompleted)
+			return;
+
 		Intent retro = new Intent(this, RetroActivityFuture.class);
 
 		if (RetroActivityFuture.isRunning) {
@@ -178,17 +183,41 @@ public final class MainMenuActivity extends PreferenceActivity
 			retro.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 			final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
-			startRetroActivity(
-					this,
-					retro,
-					null,
-					prefs.getString("libretro_path", getApplicationInfo().dataDir + "/cores/"),
-					UserPreferences.getDefaultConfigPath(this),
-					Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD),
-					getApplicationInfo().dataDir,
-					getApplicationInfo().sourceDir);
+			try
+			{
+				Intent incomingIntent = getIntent();
+				String explicitConfig = incomingIntent != null
+						? incomingIntent.getStringExtra("CONFIGFILE") : null;
+				String configPath = ActiveConfigPath.select(explicitConfig, () -> {
+					String defaultPath = UserPreferences.getDefaultConfigPath(this);
+					UserPreferences.updateConfigFile(this, defaultPath);
+					return defaultPath;
+				});
+
+				startRetroActivity(
+						this,
+						retro,
+						null,
+						prefs.getString("libretro_path", getApplicationInfo().dataDir + "/cores/"),
+						configPath,
+						Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD),
+						getApplicationInfo().dataDir,
+						getApplicationInfo().sourceDir);
+			}
+			catch (RuntimeException error)
+			{
+				Log.e("MainMenuActivity", "Configuration initialization failed", error);
+				new AlertDialog.Builder(this)
+						.setTitle("Configuration error")
+						.setMessage(error.getMessage())
+						.setPositiveButton("Close", (dialog, which) -> finish())
+						.setCancelable(false)
+						.show();
+				return;
+			}
 		}
 
+		startupCompleted = true;
 		startActivity(retro);
 		finish();
 	}
@@ -288,8 +317,6 @@ public final class MainMenuActivity extends PreferenceActivity
 
 		// Bind audio stream to hardware controls.
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
-
-		UserPreferences.updateConfigFile(this);
 
 		if (BuildConfig.PLAY_STORE_BUILD)
 			finalStartup();
