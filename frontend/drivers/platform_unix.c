@@ -118,6 +118,7 @@ static bool thread_key_inited            = false;
 static char app_dir[DIR_MAX_LENGTH];
 static char apk_dir[DIR_MAX_LENGTH];
 static char android_config_path[PATH_MAX_LENGTH];
+static char requested_config_path[PATH_MAX_LENGTH];
 /* Set in android_app_create on the UI thread, so the
  * permissionsResolved upcall can reach the app state before the
  * native thread has published g_android. */
@@ -1203,23 +1204,96 @@ static void android_env_derive_storage(JNIEnv *env, jobject activity)
             sizeof(internal_storage_app_path));
 }
 
-/* Main config location for an absent CONFIGFILE extra, following the
- * Java launcher's global-config probe order: an existing retroarch.cfg
- * in the app-external files dir, then in the internal files dir; if
- * neither exists yet, the preferred writable location is used and the
- * file is created on the first save. */
-static void android_env_derive_config_path(JNIEnv *env, jobject activity)
+/* True only for the historical app-external default. Canonicalize the
+ * parent directory rather than the config itself so identity still works
+ * before retroarch.cfg exists. */
+static bool android_env_config_path_is_legacy_default(
+      JNIEnv *env, jobject activity, const char *requested)
 {
-   /* Static scratch: this runs once, from the environment pass on the
-    * main thread, and these would otherwise dominate the (inlined)
-    * caller's stack frame. */
+   static char external[DIR_MAX_LENGTH];
+   static char external_real[DIR_MAX_LENGTH];
+   static char requested_parent[DIR_MAX_LENGTH];
+   static char requested_parent_real[DIR_MAX_LENGTH];
+   jclass activity_class;
+   jmethodID get_ext_files_dir;
+   jobject dir;
+
+   if (   !requested
+       || !string_is_equal(path_basename(requested), "retroarch.cfg"))
+      return false;
+
+   *external      = '\0';
+   activity_class = (*env)->GetObjectClass(env, activity);
+   get_ext_files_dir = (*env)->GetMethodID(env, activity_class,
+         "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
+   if (!android_env_exception(env, "getExternalFilesDir lookup"))
+   {
+      dir = (*env)->CallObjectMethod(env, activity, get_ext_files_dir,
+            (jobject)NULL);
+      if (!android_env_exception(env, "getExternalFilesDir"))
+         android_env_file_path(env, dir, external, sizeof(external));
+   }
+   (*env)->DeleteLocalRef(env, activity_class);
+
+   if (!*external)
+      return false;
+
+   fill_pathname_basedir(requested_parent, requested,
+         sizeof(requested_parent));
+   strlcpy(external_real, external, sizeof(external_real));
+   strlcpy(requested_parent_real, requested_parent,
+         sizeof(requested_parent_real));
+
+   if (   !path_resolve_realpath(external_real, sizeof(external_real), true)
+       || !path_resolve_realpath(requested_parent_real,
+             sizeof(requested_parent_real), true))
+      return false;
+
+   return string_is_equal(external_real, requested_parent_real);
+}
+
+/* Selects the master config after storage discovery. Non-Play builds use
+ * the shared RetroArch root; the old app-external default is only an alias.
+ * Every other explicit CONFIGFILE remains authoritative. Play behavior is
+ * the upstream app-specific probe order. */
+static void android_env_select_config_path(JNIEnv *env, jobject activity,
+      const char *requested_config_path, bool is_play_store_build)
+{
    static char external[DIR_MAX_LENGTH];
    static char internal[DIR_MAX_LENGTH];
    static char candidate[PATH_MAX_LENGTH];
+   static char public_directory[DIR_MAX_LENGTH];
    jclass activity_class;
    jmethodID get_ext_files_dir;
    jmethodID get_files_dir;
    jobject dir;
+
+   *android_config_path = '\0';
+
+   if (requested_config_path && *requested_config_path)
+   {
+      if (   is_play_store_build
+          || !android_env_config_path_is_legacy_default(
+                env, activity, requested_config_path))
+      {
+         strlcpy(android_config_path, requested_config_path,
+               sizeof(android_config_path));
+         return;
+      }
+   }
+
+   if (!is_play_store_build)
+   {
+      if (!*internal_storage_path)
+         return;
+
+      fill_pathname_join(public_directory, internal_storage_path,
+            "RetroArch", sizeof(public_directory));
+      path_mkdir(public_directory);
+      fill_pathname_join(android_config_path, public_directory,
+            "retroarch.cfg", sizeof(android_config_path));
+      return;
+   }
 
    *external      = '\0';
    *internal      = '\0';
@@ -2385,6 +2459,7 @@ static void frontend_unix_get_env(int *argc,
       "RetroArch", "[ENV] Checking arguments passed from intent ...\n");
 
    /* Config file. */
+   *requested_config_path = '\0';
    CALL_OBJ_METHOD_PARAM(env, jstr, obj, android_app->getStringExtra,
          (*env)->NewStringUTF(env, "CONFIGFILE"));
 
@@ -2393,13 +2468,13 @@ static void frontend_unix_get_env(int *argc,
       const char *argv = (*env)->GetStringUTFChars(env, jstr, 0);
 
       if (argv && *argv)
-         strlcpy(android_config_path, argv, sizeof(android_config_path));
+         strlcpy(requested_config_path, argv,
+               sizeof(requested_config_path));
       (*env)->ReleaseStringUTFChars(env, jstr, argv);
 
       __android_log_print(ANDROID_LOG_INFO,
-         "RetroArch", "[ENV] Config file: \"%s\".\n", android_config_path);
-      if (args && *android_config_path)
-         args->config_path = android_config_path;
+         "RetroArch", "[ENV] Requested config file: \"%s\".\n",
+         requested_config_path);
    }
 
    /* Current IME. */
@@ -2620,11 +2695,12 @@ static void frontend_unix_get_env(int *argc,
       android_env_derive_audio(env, android_app->activity->clazz);
    if (args && !args->config_path)
    {
-      android_env_derive_config_path(env, android_app->activity->clazz);
+      android_env_select_config_path(env, android_app->activity->clazz,
+            requested_config_path, android_app->is_play_store_build);
       if (*android_config_path)
       {
          __android_log_print(ANDROID_LOG_INFO,
-            "RetroArch", "[ENV] Derived config file: \"%s\".\n",
+            "RetroArch", "[ENV] Selected config file: \"%s\".\n",
             android_config_path);
          args->config_path = android_config_path;
       }
