@@ -121,6 +121,7 @@ jobs:
             --apk "$(jq -r '.normal_path' "$RUNNER_TEMP/download.json")" \
             --target pkg/android/phoenix/assets
           echo "CONFIG_HIERARCHY_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
+          echo "CONFIG_HIERARCHY_FORK_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "FORK_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "PATCH_REVISION=$patch_revision" >> "$GITHUB_ENV"
 
