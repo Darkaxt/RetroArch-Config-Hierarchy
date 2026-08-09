@@ -15,6 +15,7 @@ Design under test: `docs/superpowers/specs/2026-08-10-retroarch-config-hierarchy
 - Signer SHA-256 for both APKs: `BD8C473A9E1C8F3FB83EE4549AEDCFE43E77E6960118E75B7DB90A32F3640D12`.
 - Normal APK SHA-256: `0395b61ca17dc4793e68c4f4d7f1e5df4ecd04ad53a62b17d7f9a6f70e38081a`.
 - AArch64 APK SHA-256: `21da0632b56d23e3b85c4990f2b1ad35f0d2fa725221eeed7ff0e2e2035591c3`.
+- GitHub Actions run `31340444178`: passed the activated no-op path in 37 seconds and skipped download, build, signing, and publication because no complete pair was newer than the baseline.
 
 The signed validation build used the full asset payload extracted from the validated upstream normal APK. Both final APKs passed ZIP integrity, `zipalign`, `aapt` package/version inspection, `apksigner` certificate inspection, ABI inspection, ELF revision extraction, and embedded provenance checks.
 
