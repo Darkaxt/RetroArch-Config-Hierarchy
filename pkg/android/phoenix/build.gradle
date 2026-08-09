@@ -34,6 +34,7 @@ def releaseKeyPassword = releaseValue('RELEASE_KEY_PASSWORD')
 def releaseSigningValues = [releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword]
 def releaseSigningComplete = releaseSigningValues.every { it != null && !it.toString().isEmpty() }
 def configHierarchyRelease = System.getenv('CONFIG_HIERARCHY_RELEASE') == 'true'
+def configHierarchyForkRevision = System.getenv('CONFIG_HIERARCHY_FORK_REVISION')
 
 if (configHierarchyRelease && !releaseSigningComplete) {
   throw new GradleException('Config hierarchy release signing is incomplete; debug signing is forbidden')
@@ -60,6 +61,9 @@ android {
     externalNativeBuild {
       ndkBuild {
         arguments "-j${Runtime.runtime.availableProcessors()}"
+        if (configHierarchyForkRevision) {
+          arguments "GIT_VERSION=${configHierarchyForkRevision.take(12)}"
+        }
       }
     }
     def configuredVersionCode = System.getenv('CONFIG_HIERARCHY_VERSION_CODE')
