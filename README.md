@@ -2,6 +2,17 @@
 
 # RetroArch
 
+> **RetroArch Config Hierarchy fork:** Ordinary non-Play Android launches use
+> `/storage/emulated/0/RetroArch/config/retroarch.cfg`. A non-empty caller
+> `CONFIGFILE` remains authoritative. Existing public configs win, and a legacy
+> app-specific config is copied byte-for-byte only when the public file is
+> absent. Google Play flavors retain upstream app-specific storage behavior.
+>
+> This branch follows completed upstream Android nightlies through a fail-closed
+> signed prerelease pipeline. See
+> [`docs/release-operations.md`](docs/release-operations.md) and the approved
+> [`design specification`](docs/superpowers/specs/2026-08-10-retroarch-config-hierarchy-design.md).
+
 RetroArch is the reference frontend for the libretro API.
 Popular examples of implementations for this API includes video game system emulators and game engines as well as
 more generalized 3D programs.
