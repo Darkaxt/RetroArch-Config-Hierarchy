@@ -13,6 +13,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import com.retroarch.browser.preferences.util.ConfigFile;
+import com.retroarch.browser.preferences.util.ActiveConfigPath;
 import com.retroarch.browser.preferences.util.UserPreferences;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -114,7 +115,7 @@ public final class RetroActivityFuture extends RetroActivityCamera {
 
     // Checks if Android versions is above 9.0 (28) and enable the screen to write over notch if the user desires
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      ConfigFile configFile = new ConfigFile(UserPreferences.getDefaultConfigPath(this));
+      ConfigFile configFile = new ConfigFile(getActiveConfigPath());
       try {
         if (configFile.getBoolean("video_notch_write_over_enable")) {
           getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
@@ -146,13 +147,19 @@ public final class RetroActivityFuture extends RetroActivityCamera {
     mHandlerSendUiMessage(HANDLER_WHAT_TOGGLE_IMMERSIVE, hasFocus);
 
     try {
-      ConfigFile configFile = new ConfigFile(UserPreferences.getDefaultConfigPath(this));
+      ConfigFile configFile = new ConfigFile(getActiveConfigPath());
       if (configFile.getBoolean("input_auto_mouse_grab")) {
         inputGrabMouse(hasFocus);
       }
     } catch (Exception e) {
       Log.w("RetroActivityFuture", "[onWindowFocusChanged] exception thrown: " + e.getMessage());
     }
+  }
+
+  private String getActiveConfigPath() {
+    Intent intent = getIntent();
+    String explicitPath = intent != null ? intent.getStringExtra("CONFIGFILE") : null;
+    return ActiveConfigPath.select(explicitPath, () -> UserPreferences.getDefaultConfigPath(this));
   }
 
   private void mHandlerSendUiMessage(int what, boolean state) {
