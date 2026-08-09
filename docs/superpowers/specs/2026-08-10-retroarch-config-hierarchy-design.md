@@ -7,7 +7,7 @@
 | Platform | Android non-Play builds |
 | Published variants | `normal` and `aarch64` |
 | Distribution | GitHub prereleases consumed by Obtainium or ObtainX |
-| Configuration root | `/storage/emulated/0/RetroArch/config/` |
+| Master configuration root | `/storage/emulated/0/RetroArch/` |
 | Upstream alignment | Exact source revision from each completed upstream Android nightly |
 
 ## Purpose
@@ -21,7 +21,7 @@ The fork follows upstream Android nightlies. It does not become an independently
 For direct human interaction, the active master configuration is:
 
 ```text
-/storage/emulated/0/RetroArch/config/retroarch.cfg
+/storage/emulated/0/RetroArch/retroarch.cfg
 ```
 
 An explicit config argument remains stronger than the default policy:
@@ -70,7 +70,7 @@ After successful initialization, ordinary UI changes, Save Current Configuration
 
 ## Current Upstream Behavior
 
-The Android launcher resolves its default config through `UserPreferences.getDefaultConfigPath()`. With external storage mounted, the resolver normally selects the application-specific external file returned beneath `Context.getExternalFilesDir(null)`. It does not consult the public `RetroArch/config/retroarch.cfg` file.
+The Android launcher resolves its default config through `UserPreferences.getDefaultConfigPath()`. With external storage mounted, the resolver normally selects the application-specific external file returned beneath `Context.getExternalFilesDir(null)`. It does not consult the established public `RetroArch/retroarch.cfg` file.
 
 The launcher passes that result to the native activity through `CONFIGFILE`. Native Android handling converts the value into RetroArch's config argument, which becomes the active `RARCH_PATH_CONFIG`. Android-side code also calls the default resolver directly for settings including display-cutout and automatic mouse-grab behavior.
 
@@ -112,9 +112,10 @@ Once public initialization has been attempted with the required permission avail
 
 When the public file is missing, migration examines only known legacy locations for the same config filename:
 
-1. application-specific external files directory;
-2. internal files directory;
-3. an existing platform fallback used by the current resolver, if still reachable and relevant at implementation time.
+1. alternate public `RetroArch/config/` directory;
+2. application-specific external files directory;
+3. internal files directory;
+4. an existing platform fallback used by the current resolver, if still reachable and relevant at implementation time.
 
 The first valid source is copied exactly. Migration does not parse the source through Android's `ConfigFile` map because doing so could discard comments, ordering, duplicate entries, quoting, or unknown syntax.
 
