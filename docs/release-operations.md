@@ -4,7 +4,11 @@
 
 `.github/workflows/config-hierarchy-nightly.yml` checks the official Libretro Android nightly archive every 30 minutes. It does nothing until both dated APKs exist. The first completed date newer than `config-hierarchy/release-state.json` is processed, so a delayed or missed date is not skipped.
 
+The initial state is deliberately seeded at the last completed pair present when the fork monitor was activated (`2026-08-09`). This prevents a new fork from trying to retroactively publish the archive backlog. After activation, every completed pair newer than that baseline is processed oldest-first, so temporary workflow downtime does not skip releases.
+
 Both upstream APKs are fully downloaded, ZIP-tested, and inspected for the `retroarch_git_version` ELF symbol in every packaged ABI. The short revisions must match and resolve to one commit in `libretro/RetroArch`. The build stops if the revision is missing, divergent, unknown, or a rollback.
+
+After the first published fork nightly, the saved URL, ETag, Last-Modified value, content length, and SHA-256 identify both processed upstream APKs. Each heartbeat performs inexpensive HEAD checks against the last processed pair before selecting a new one. Changed remote identity stops the workflow for manual provenance review; an existing fork release is never silently replaced.
 
 The maintained commits are rebased onto that proven source without conflict resolution. Assets, autoconfig profiles, databases, core info, overlays, filters, and shaders are extracted directly from the validated upstream normal APK before the fork build; this avoids independently drifting those bundled payloads.
 
