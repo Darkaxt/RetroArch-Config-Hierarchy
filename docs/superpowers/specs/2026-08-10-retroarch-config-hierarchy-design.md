@@ -311,7 +311,7 @@ The pipeline publishes nothing and leaves the maintained branch and last good re
 - only one fork variant succeeds;
 - GitHub release upload is incomplete.
 
-The workflow exposes the failing stage in GitHub Actions. It does not create speculative APKs, silently switch source revisions, or auto-resolve semantic conflicts.
+The workflow exposes the failing stage in GitHub Actions. It does not silently switch source revisions or auto-resolve semantic conflicts. If both upstream APKs agree on an embedded revision that is not public, it may build from the current full `upstream/master` commit only when the APK-reported revision, selected build revision, non-exact status, and official APK hashes are embedded and published in the release provenance.
 
 ## Test Strategy
 
