@@ -155,8 +155,12 @@ class WorkflowContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("persist-credentials: false", workflow)
-        self.assertIn("GH_TOKEN: ${{ secrets.RELEASE_PAT }}", workflow)
-        self.assertIn("gh auth setup-git", workflow)
+        self.assertIn("GH_TOKEN: ${{ github.token }}", workflow)
+        self.assertIn("RELEASE_PAT: ${{ secrets.RELEASE_PAT }}", workflow)
+        self.assertIn(
+            'git remote set-url origin "https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git"',
+            workflow,
+        )
 
     def test_release_commit_reaches_main_before_draft_creation(self):
         repository = TOOLS_DIR.parents[1]
