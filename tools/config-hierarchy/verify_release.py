@@ -126,7 +126,7 @@ def verify_apk(
     signer = parse_signer_sha256(signer_output)
     if signer != normalize_fingerprint(expected_signer):
         raise ValueError(f"Unexpected signer: {signer}")
-    subprocess.run([str(zipalign), "-c", "-v", "4", str(apk_path)], check=True)
+    run_checked([str(zipalign), "-c", "-v", "4", str(apk_path)])
     return {
         "package": package,
         "version_code": version_code,
