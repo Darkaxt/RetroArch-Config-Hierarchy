@@ -17,6 +17,13 @@ class NightlyPair:
     aarch64_url: str
 
 
+@dataclass(frozen=True)
+class RevisionResolution:
+    apk_reported_revision: str
+    build_revision: str
+    exact: bool
+
+
 _APK_PATTERN = re.compile(
     r"(?P<date>\d{4}-\d{2}-\d{2})-RetroArch(?P<aarch64>_aarch64)?\.apk"
 )
@@ -45,17 +52,29 @@ def select_next_pair(pairs, last_released_date):
 
 
 def resolve_pair_revision(normal_revision, aarch64_revision, resolver):
+    return select_build_revision(
+        normal_revision, aarch64_revision, resolver, None
+    ).build_revision
+
+
+def select_build_revision(
+    normal_revision, aarch64_revision, resolver, fallback_revision
+):
     if normal_revision != aarch64_revision:
         raise ProvenanceError(
             "Upstream APKs contain divergent RetroArch revisions: "
             f"{normal_revision} != {aarch64_revision}"
         )
     full_revision = resolver(normal_revision)
-    if not full_revision or not re.fullmatch(r"[0-9a-fA-F]{40}", full_revision):
-        raise ProvenanceError(
-            f"Embedded upstream revision does not resolve to one full commit: {normal_revision}"
+    if full_revision and re.fullmatch(r"[0-9a-fA-F]{40}", full_revision):
+        return RevisionResolution(normal_revision, full_revision.lower(), True)
+    if fallback_revision and re.fullmatch(r"[0-9a-fA-F]{40}", fallback_revision):
+        return RevisionResolution(
+            normal_revision, fallback_revision.lower(), False
         )
-    return full_revision.lower()
+    raise ProvenanceError(
+        f"Embedded upstream revision does not resolve to one full commit: {normal_revision}"
+    )
 
 
 def ensure_forward_revision(previous_revision, new_revision, is_ancestor):
