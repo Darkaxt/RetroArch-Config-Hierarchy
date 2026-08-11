@@ -149,6 +149,15 @@ class WorkflowContractTests(unittest.TestCase):
             workflow.index("sdkmanager --install"),
         )
 
+    def test_publication_uses_workflow_capable_release_token(self):
+        repository = TOOLS_DIR.parents[1]
+        workflow = (repository / ".github/workflows/config-hierarchy-nightly.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("GH_TOKEN: ${{ secrets.RELEASE_PAT }}", workflow)
+        self.assertIn("gh auth setup-git", workflow)
+
 
 class ElfRevisionTests(unittest.TestCase):
     def test_extracts_revision_from_named_elf_symbol(self):
