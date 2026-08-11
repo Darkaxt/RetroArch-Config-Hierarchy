@@ -1,52 +1,52 @@
 # Stage 2 Validation: Publication Pipeline
 
-Date: 2026-08-10
+Date: 2026-08-10; live publication validated 2026-08-12
 
 Design under test: `docs/superpowers/specs/2026-08-10-retroarch-config-hierarchy-design.md`
 
 ## Automated evidence
 
-- `python -m unittest discover -s tools/config-hierarchy/tests -v`: 29 tests passed.
+- `python -m unittest discover -s tools/config-hierarchy/tests -p 'test_*.py'`: 36 tests passed.
 - `actionlint .github/workflows/config-hierarchy-nightly.yml`: passed.
 - Gradle release-signing preflight with missing signer inputs: failed during configuration as required; debug signing was not used.
-- Signed Gradle matrix (`test`, both Play release compile checks, `assembleNormalRelease`, and `assembleAarch64Release`): 245 tasks completed successfully in one invocation.
-- Final release verifier, normal APK: passed for package `com.retroarch`, ABIs `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`, version code `1786313695`, version name `1.22.2_GIT`, fork revision `735bc8175a41`, and the pinned signer.
+- GitHub Actions run [`31536815901`](https://github.com/Darkaxt/RetroArch-Config-Hierarchy/actions/runs/31536815901) passed discovery, source selection, patch rebase, signing, the combined test/build matrix, final APK verification, draft creation, four-asset upload, four-asset re-download, hash verification, and public prerelease promotion.
+- Public prerelease [`nightly-2026-08-10-fa7b68b`](https://github.com/Darkaxt/RetroArch-Config-Hierarchy/releases/tag/nightly-2026-08-10-fa7b68b) is non-draft and contains exactly the two dated APKs plus their byte-identical stable aliases.
+- Final release verifier, normal APK: passed for package `com.retroarch`, ABIs `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`, version code `1786482848`, version name `1.22.2_GIT`, fork revision `efa81cf325d8`, and the pinned signer.
 - Final release verifier, AArch64 APK: passed for package `com.retroarch.aarch64`, ABIs `arm64-v8a` and `x86_64`, the same version, fork revision, and pinned signer.
 - Signer SHA-256 for both APKs: `BD8C473A9E1C8F3FB83EE4549AEDCFE43E77E6960118E75B7DB90A32F3640D12`.
-- Normal APK SHA-256: `0395b61ca17dc4793e68c4f4d7f1e5df4ecd04ad53a62b17d7f9a6f70e38081a`.
-- AArch64 APK SHA-256: `21da0632b56d23e3b85c4990f2b1ad35f0d2fa725221eeed7ff0e2e2035591c3`.
+- Normal APK SHA-256: `353c684f728504e322927552b8ea3ad9cca9d8e1addf7c7385844e4e208f2d83`.
+- AArch64 APK SHA-256: `e90ca346d4543b388f8a88f95ba82cdfa9595fc10a1ac5eed027c63715cc49d7`.
 - GitHub Actions run `31340444178`: passed the activated no-op path in 37 seconds and skipped download, build, signing, and publication because no complete pair was newer than the baseline.
 
-The signed validation build used the full asset payload extracted from the validated upstream normal APK. Both final APKs passed ZIP integrity, `zipalign`, `aapt` package/version inspection, `apksigner` certificate inspection, ABI inspection, ELF revision extraction, and embedded provenance checks.
+The signed validation build used the full asset payload extracted from the validated upstream normal APK. Both final APKs passed ZIP integrity, `zipalign`, `aapt` package/version inspection, `apksigner` certificate inspection, ABI inspection, ELF revision extraction, and embedded provenance checks. After publication, all four assets were independently downloaded from GitHub and checked again; the stable aliases matched their dated counterparts byte-for-byte.
 
 ## Design acceptance mapping
 
 | Design requirement | Evidence | Result |
 | --- | --- | --- |
 | Wait for both upstream variants | Discovery accepts only a complete normal/AArch64 date pair; partial-pair and missed-date tests pass. | Passed |
-| Build from the exact revision embedded in both APKs | Every ABI is inspected; divergent, missing, unknown, and rollback revisions fail closed. Exact commit resolution is required before rebase/build. | Passed in tests and live fail-closed check |
+| Select and disclose the upstream build source | Every ABI is inspected; divergent, missing, and rollback revisions fail closed. The exact embedded revision is preferred; an unresolvable shared revision uses the current full `upstream/master` revision only with both revisions, official APK hashes, and non-exact status embedded and published. | Passed in tests and live fallback release |
 | Maintain the fork patch without semantic auto-resolution | The workflow rebases the maintained commit stack on the proven source and stops on conflict. | Passed by inspection and orchestration coverage |
 | Build both variants together | One signed Gradle invocation produced and tested both release variants. | Passed |
 | Validate signer, package, ABI, version, alignment, integrity, and provenance | Independent verification passed for both signed outputs with the expected, matching version and permanent certificate. | Passed |
-| Publish dated assets and byte-identical stable aliases | Manifest and alias-identity tests pass; publication re-downloads all four GitHub assets and verifies their hashes before making the prerelease public. | Passed locally; live release intentionally pending a resolvable upstream pair |
+| Publish dated assets and byte-identical stable aliases | The public prerelease contains exactly four uploaded APKs; GitHub digests and independent downloads confirm each stable alias matches its dated asset. | Passed live |
 | Repeated heartbeat is idempotent | Released dates are a no-op; changed previously processed upstream artifacts are rejected. | Passed |
-| Publication is transactional | Draft/tag/staging cleanup and force-with-lease branch restoration are implemented; incomplete remote manifests block publication. | Passed by inspection and orchestration coverage |
+| Publication is transactional | Failed publication attempts removed their draft/staging state and restored `main`; the successful run advanced `main`, verified all remote assets, and then promoted the draft. | Passed live |
 | Obtainium/ObtainX can update in place | Both package IDs use one pinned permanent signer and a shared deterministic monotonic version code. | Artifact contract passed; first/second device install remains a deployment gate |
 
 ## Live upstream provenance check
 
-Local validation of the latest completed official pair available at the time (`2026-08-09`) found that both APKs embed short revision `31c4e00`, which does not resolve in `libretro/RetroArch`.
+The completed official `2026-08-10` pair reports short revision `31c4e00` in both APKs. That revision does not resolve in the public `libretro/RetroArch` repository.
 
 After GitHub activation, workflow-dispatch run `31340197569` exercised the monitor from its initially empty state. It downloaded and structurally validated the oldest archived complete pair (`2026-07-27`), found matching embedded revision `14b958d`, and failed at exact-source resolution because that revision is also absent from the public upstream repository. It created no release or staging ref and left `main` unchanged. The archive state is now seeded at `2026-08-09`, the activation baseline, so scheduled runs mirror future completed nightlies without trying to retroactively publish an unverifiable backlog.
 
-Both checks demonstrate the required failure behavior: the workflow stops before rebase, signing, branch advancement, or release creation rather than approximating an upstream nightly.
+The approved functional-first fallback selected full public revision `fa7b68b7050829206e87b29d6caa82cd7e4e4b80` from `upstream/master`. The release provenance and notes disclose the APK-reported revision, selected build revision, `Exact APK/source match: false`, and both official APK hashes. The release therefore remains reproducible from public source without claiming an exact source match that upstream has not published.
 
-## Remaining first-release gates
+## Remaining device and recovery gates
 
 These are intentionally not claimed by stage 2 automation:
 
 - create and test the required offline recovery copy of the permanent signer;
-- wait for an upstream nightly pair whose embedded revision resolves to an exact public commit;
 - perform the one-time rooted Thor migration manually, then validate active-config saves/restarts and the first Obtainium/ObtainX in-place update.
 
-The publication implementation is complete. A public prerelease must remain blocked until the external provenance and first-device gates above are satisfied.
+The publication implementation and first public prerelease are complete. The remaining items are device-deployment and recovery gates, not blockers for the already validated GitHub publication.
