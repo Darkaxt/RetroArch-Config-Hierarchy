@@ -6,7 +6,7 @@
 
 The initial state is deliberately seeded at the last completed pair present when the fork monitor was activated (`2026-08-09`). This prevents a new fork from trying to retroactively publish the archive backlog. After activation, every completed pair newer than that baseline is processed oldest-first, so temporary workflow downtime does not skip releases.
 
-Both upstream APKs are fully downloaded, ZIP-tested, and inspected for the `retroarch_git_version` ELF symbol in every packaged ABI. The short revisions must match and resolve to one commit in `libretro/RetroArch`. The build stops if the revision is missing, divergent, unknown, or a rollback.
+Both upstream APKs are fully downloaded, ZIP-tested, and inspected for the `retroarch_git_version` ELF symbol in every packaged ABI. The short revisions must match. When that revision resolves in `libretro/RetroArch`, the fork builds from the exact commit. When Libretro's APK names an unpublished commit, the fork builds from the current public `upstream/master` instead and records both revisions plus the non-exact match in the embedded provenance and release notes. Divergent APK revisions, an invalid public fallback, or a source rollback still stop publication.
 
 After the first published fork nightly, the saved URL, ETag, Last-Modified value, content length, and SHA-256 identify both processed upstream APKs. Each heartbeat performs inexpensive HEAD checks against the last processed pair before selecting a new one. Changed remote identity stops the workflow for manual provenance review; an existing fork release is never silently replaced.
 
@@ -87,6 +87,6 @@ There is intentionally no migration or deployment script. Perform this once, man
 
 After that signer transition, Obtainium or ObtainX performs ordinary in-place updates. The manual migration is not repeated.
 
-## Current upstream provenance condition
+## Upstream provenance fallback
 
-The pipeline deliberately refuses to guess. If Libretro publishes an APK whose embedded revision is not reachable from `libretro/RetroArch`, the monitor fails at the provenance stage and publishes nothing. Resume releases only when upstream exposes the commit or after a reviewed change to the provenance contract.
+Libretro's 2026-08-10 Android pair reports revision `31c4e00`, which is not present in the public source repository. Functional publication takes priority over waiting indefinitely: the monitor uses the full public `upstream/master` revision as the build source, while preserving the official APK hashes and APK-reported revision for auditability. It never labels this fallback as an exact source match.
