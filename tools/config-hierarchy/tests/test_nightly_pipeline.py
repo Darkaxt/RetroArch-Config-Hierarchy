@@ -137,6 +137,18 @@ class NightlyDiscoveryTests(unittest.TestCase):
         )
 
 
+class WorkflowContractTests(unittest.TestCase):
+    def test_android_command_line_tools_are_set_up_before_sdkmanager(self):
+        repository = TOOLS_DIR.parents[1]
+        workflow = (repository / ".github/workflows/config-hierarchy-nightly.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertLess(
+            workflow.index("android-actions/setup-android@v4"),
+            workflow.index("sdkmanager --install"),
+        )
+
+
 class ElfRevisionTests(unittest.TestCase):
     def test_extracts_revision_from_named_elf_symbol(self):
         elf = build_elf64_with_symbol("retroarch_git_version", b"31c4e00\0")
