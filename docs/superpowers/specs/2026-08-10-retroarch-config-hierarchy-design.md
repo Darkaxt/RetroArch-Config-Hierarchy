@@ -266,15 +266,13 @@ The pipeline records SHA-256 for every published asset. Verification reads the f
 Each successful upstream nightly creates one immutable GitHub prerelease with a dated fork tag. The release contains:
 
 ```text
-YYYY-MM-DD-RetroArch.apk
-YYYY-MM-DD-RetroArch_aarch64.apk
 RetroArch.apk
 RetroArch_aarch64.apk
 ```
 
-The stable aliases are byte-identical copies of the dated APKs in that release. They provide predictable Obtainium and ObtainX filters; the dated names preserve correspondence with upstream.
+The two stable asset names provide predictable Obtainium and ObtainX filters. The dated release tag and release notes preserve correspondence with upstream without uploading byte-identical dated duplicates.
 
-The release is assembled as a GitHub draft. All four assets are uploaded, downloaded again, and checked against the final hashes before the draft is published as a prerelease. An incomplete draft is not user-visible and is removed or retained privately for diagnosis rather than promoted.
+The release is assembled as a GitHub draft. Both assets are uploaded, downloaded again, and checked against the final hashes before the draft is published as a prerelease. An incomplete draft is not user-visible and is removed or retained privately for diagnosis rather than promoted.
 
 Release notes record:
 
@@ -364,7 +362,7 @@ The workflow exposes the failing stage in GitHub Actions. It does not silently s
 - Patch conflict blocks branch advancement.
 - Missing signing inputs fail before build publication.
 - Deliberately wrong signer, package, ABI or version blocks publication.
-- Both aliases match their dated assets byte-for-byte.
+- The release manifest contains exactly the two stable APK names.
 - Obtainium/ObtainX can identify a newer version code and install over the prior fork build.
 
 ## Acceptance Criteria
@@ -382,7 +380,7 @@ The project is ready for its first public prerelease when all of the following a
 9. The workflow waits for both upstream Android nightly variants.
 10. The build base equals the revision embedded in both upstream APKs when it is public; otherwise the release uses the current full `upstream/master` revision and discloses both revisions, official APK hashes, and non-exact status.
 11. Both fork variants are built in one release run and pass all signer, package, ABI, version, alignment, integrity and provenance checks.
-12. The GitHub prerelease contains dated assets and byte-identical stable aliases.
+12. The GitHub prerelease contains exactly `RetroArch.apk` and `RetroArch_aarch64.apk`; the tag and notes carry the upstream date.
 13. The manually migrated Thor config survives official-app uninstall and becomes the proven active config in the first fork installation.
 14. The next fork nightly installs in place through Obtainium or ObtainX without another migration or uninstall.
 
