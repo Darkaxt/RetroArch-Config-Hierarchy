@@ -196,7 +196,7 @@ jobs:
             assembleAarch64Release \
             --console=plain
 
-      - name: Verify packages, ABIs, versions, signer, provenance and aliases
+      - name: Verify packages, ABIs, versions, signer, provenance and release assets
         if: steps.discovery.outputs.ready == 'true'
         shell: bash
         env:
@@ -208,13 +208,13 @@ jobs:
           release_dir="$RUNNER_TEMP/release"
           mkdir -p "$release_dir"
           cp pkg/android/phoenix/build/outputs/apk/normal/release/phoenix-normal-release.apk \
-            "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch.apk"
+            "$release_dir/RetroArch.apk"
           cp pkg/android/phoenix/build/outputs/apk/aarch64/release/phoenix-aarch64-release.apk \
-            "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch_aarch64.apk"
+            "$release_dir/RetroArch_aarch64.apk"
           build_tools="$ANDROID_HOME/build-tools/36.0.0"
           export CONFIG_HIERARCHY_RELEASE=true
           python3 tools/config-hierarchy/verify_release.py \
-            --apk "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch.apk" \
+            --apk "$release_dir/RetroArch.apk" \
             --package com.retroarch \
             --abis armeabi-v7a,arm64-v8a,x86,x86_64 \
             --signer "$SIGNER_SHA256" \
@@ -225,7 +225,7 @@ jobs:
             --apksigner "$build_tools/apksigner" \
             --zipalign "$build_tools/zipalign" > "$RUNNER_TEMP/normal-verification.json"
           python3 tools/config-hierarchy/verify_release.py \
-            --apk "$release_dir/${{ steps.discovery.outputs.date }}-RetroArch_aarch64.apk" \
+            --apk "$release_dir/RetroArch_aarch64.apk" \
             --package com.retroarch.aarch64 \
             --abis arm64-v8a,x86_64 \
             --signer "$SIGNER_SHA256" \
@@ -235,8 +235,7 @@ jobs:
             --aapt "$build_tools/aapt" \
             --apksigner "$build_tools/apksigner" \
             --zipalign "$build_tools/zipalign" > "$RUNNER_TEMP/aarch64-verification.json"
-          python3 tools/config-hierarchy/run_release.py aliases \
-            --date "${{ steps.discovery.outputs.date }}" \
+          python3 tools/config-hierarchy/run_release.py release-assets \
             --directory "$release_dir" > "$RUNNER_TEMP/assets.json"
           python3 tools/config-hierarchy/run_release.py release-metadata \
             --state "$STATE_FILE" \
@@ -288,8 +287,6 @@ jobs:
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --draft \
             --prerelease \
-            "$release_dir/${date}-RetroArch.apk" \
-            "$release_dir/${date}-RetroArch_aarch64.apk" \
             "$release_dir/RetroArch.apk" \
             "$release_dir/RetroArch_aarch64.apk"
 
