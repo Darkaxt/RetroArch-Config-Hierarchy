@@ -54,6 +54,12 @@ jobs:
           cache: gradle
           cache-dependency-path: pkg/android/phoenix/gradle/wrapper/gradle-wrapper.properties
 
+      - name: Set up Android SDK command-line tools
+        if: steps.discovery.outputs.ready == 'true'
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
       - name: Download and structurally validate upstream APK pair
         if: steps.discovery.outputs.ready == 'true'
         shell: bash
