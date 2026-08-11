@@ -7,6 +7,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 TOOLS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS_DIR))
@@ -238,6 +239,42 @@ class ReleaseVerificationTests(unittest.TestCase):
             self.assertEqual(["arm64-v8a"], inspected["abis"])
             self.assertEqual("abc1234", inspected["fork_revision"])
             self.assertEqual(provenance, inspected["provenance"])
+
+    def test_apk_verification_captures_zipalign_output(self):
+        provenance = {"upstream_revision": "f" * 40, "patch_revision": "patch-v1"}
+        with tempfile.TemporaryDirectory() as directory:
+            apk = Path(directory) / "fixture.apk"
+            with zipfile.ZipFile(apk, "w") as archive:
+                archive.writestr(
+                    "lib/arm64-v8a/libretroarch-activity.so",
+                    build_elf64_with_symbol("retroarch_git_version", b"abc1234\0"),
+                )
+                archive.writestr(
+                    "assets/config-hierarchy-provenance.json", json.dumps(provenance)
+                )
+            outputs = [
+                "package: name='com.retroarch.aarch64' versionCode='123' versionName='1_GIT'\n",
+                "Signer #1 certificate SHA-256 digest: AA:BB\n",
+                "Verification successful\n",
+            ]
+            with mock.patch.object(verify_release, "run_checked", side_effect=outputs), mock.patch.object(
+                verify_release.subprocess,
+                "run",
+                side_effect=AssertionError("verifier subprocess output was not captured"),
+            ):
+                result = verify_release.verify_apk(
+                    apk,
+                    "com.retroarch.aarch64",
+                    ["arm64-v8a"],
+                    "AABB",
+                    "abc1234" + "0" * 33,
+                    "f" * 40,
+                    "patch-v1",
+                    "aapt",
+                    "apksigner",
+                    "zipalign",
+                )
+            self.assertEqual("com.retroarch.aarch64", result["package"])
 
     def test_release_notes_include_required_provenance_and_hashes(self):
         body = release_notes.render(
