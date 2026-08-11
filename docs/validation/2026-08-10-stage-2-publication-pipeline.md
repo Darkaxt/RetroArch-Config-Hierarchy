@@ -20,6 +20,10 @@ Design under test: `docs/superpowers/specs/2026-08-10-retroarch-config-hierarchy
 
 The signed validation build used the full asset payload extracted from the validated upstream normal APK. Both final APKs passed ZIP integrity, `zipalign`, `aapt` package/version inspection, `apksigner` certificate inspection, ABI inspection, ELF revision extraction, and embedded provenance checks. After publication, all four assets were independently downloaded from GitHub and checked again; the stable aliases matched their dated counterparts byte-for-byte.
 
+## Two-asset contract update
+
+On 2026-08-12, the release contract was simplified for future nightlies. The dated tag and release notes retain upstream identity, while publication now uploads and re-downloads only `RetroArch.apk` and `RetroArch_aarch64.apk`. The inaugural four-asset release remains unchanged as historical evidence. The full suite passed 37 tests, actionlint passed, and regression coverage requires a two-entry manifest while rejecting dated upload paths in the workflow.
+
 ## Design acceptance mapping
 
 | Design requirement | Evidence | Result |
@@ -29,7 +33,7 @@ The signed validation build used the full asset payload extracted from the valid
 | Maintain the fork patch without semantic auto-resolution | The workflow rebases the maintained commit stack on the proven source and stops on conflict. | Passed by inspection and orchestration coverage |
 | Build both variants together | One signed Gradle invocation produced and tested both release variants. | Passed |
 | Validate signer, package, ABI, version, alignment, integrity, and provenance | Independent verification passed for both signed outputs with the expected, matching version and permanent certificate. | Passed |
-| Publish dated assets and byte-identical stable aliases | The public prerelease contains exactly four uploaded APKs; GitHub digests and independent downloads confirm each stable alias matches its dated asset. | Passed live |
+| Publish the verified stable assets without duplicates | The inaugural release passed the original four-asset contract. Future-release tests require exactly the two stable names, and publication verifies the complete two-entry remote manifest before promotion. | Passed live for artifact integrity; simplified contract passed in automation tests |
 | Repeated heartbeat is idempotent | Released dates are a no-op; changed previously processed upstream artifacts are rejected. | Passed |
 | Publication is transactional | Failed publication attempts removed their draft/staging state and restored `main`; the successful run advanced `main`, verified all remote assets, and then promoted the draft. | Passed live |
 | Obtainium/ObtainX can update in place | Both package IDs use one pinned permanent signer and a shared deterministic monotonic version code. | Artifact contract passed; first/second device install remains a deployment gate |
