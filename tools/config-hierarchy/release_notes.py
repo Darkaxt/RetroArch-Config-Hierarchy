@@ -6,12 +6,18 @@ def render(metadata):
     assets = "\n".join(
         f"- `{name}`: `{digest}`" for name, digest in sorted(metadata["assets"].items())
     )
+    apk_revision = metadata.get(
+        "upstream_apk_revision", metadata["upstream_revision"][:7]
+    )
+    exact = str(metadata.get("upstream_revision_exact", True)).lower()
     return f"""# RetroArch Config Hierarchy nightly {metadata['nightly_date']}
 
 This fork keeps an explicit caller-supplied `CONFIGFILE` authoritative. Ordinary non-Play launches use `/storage/emulated/0/RetroArch/retroarch.cfg`, with public-first, non-destructive migration from the alternate `RetroArch/config` path or app-specific storage.
 
 - Upstream nightly: `{metadata['nightly_date']}`
-- Exact upstream revision: `{metadata['upstream_revision']}`
+- Build source revision: `{metadata['upstream_revision']}`
+- APK-reported revision: `{apk_revision}`
+- Exact APK/source match: `{exact}`
 - Fork release revision: `{metadata['fork_revision']}`
 - Public-config patch revision: `{metadata['patch_revision']}`
 - Fork signer SHA-256: `{metadata['signer_sha256']}`
