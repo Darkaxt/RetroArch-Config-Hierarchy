@@ -277,6 +277,9 @@ jobs:
           trap cleanup ERR
 
           git push origin "HEAD:refs/heads/$staging_branch"
+          git push --force-with-lease="refs/heads/${ORIGINAL_BRANCH}:${ORIGINAL_REVISION}" \
+            origin "HEAD:refs/heads/${ORIGINAL_BRANCH}"
+          branch_advanced=true
           gh release create "$tag" \
             --target "$FORK_REVISION" \
             --title "RetroArch Config Hierarchy ${date}" \
@@ -295,9 +298,6 @@ jobs:
             --directory "$redownload" \
             --manifest "$RUNNER_TEMP/assets.json"
 
-          git push --force-with-lease="refs/heads/${ORIGINAL_BRANCH}:${ORIGINAL_REVISION}" \
-            origin "HEAD:refs/heads/${ORIGINAL_BRANCH}"
-          branch_advanced=true
           gh release edit "$tag" --draft=false --prerelease
           git push origin --delete "$staging_branch"
           trap - ERR
