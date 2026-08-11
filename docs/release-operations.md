@@ -15,13 +15,11 @@ The maintained commits are rebased onto that proven source without conflict reso
 The workflow builds `normalRelease` and `aarch64Release` in the same Gradle invocation. A successful prerelease contains exactly:
 
 ```text
-YYYY-MM-DD-RetroArch.apk
-YYYY-MM-DD-RetroArch_aarch64.apk
 RetroArch.apk
 RetroArch_aarch64.apk
 ```
 
-The stable aliases are byte-identical to their dated counterparts.
+The dated tag and release notes identify the upstream nightly. Dated duplicate assets are not uploaded.
 
 ## Permanent signer
 
@@ -57,7 +55,7 @@ It then:
 
 1. pushes the verified commit to a temporary staging ref;
 2. advances the maintained branch with force-with-lease so the release target is reachable from the default branch;
-3. creates a draft prerelease and uploads all four assets;
+3. creates a draft prerelease and uploads both stable-name assets;
 4. downloads all assets from GitHub and checks the complete name/hash manifest;
 5. publishes the draft as a prerelease and removes the staging ref.
 
@@ -70,7 +68,7 @@ Enable prereleases and use exactly one stable asset filter per installed package
 - `^RetroArch\.apk$` for `com.retroarch`;
 - `^RetroArch_aarch64\.apk$` for `com.retroarch.aarch64`.
 
-Do not match both dated and stable names, or the updater may see duplicate candidates. Both APKs use the same permanent certificate and the same monotonically increasing version code for a release.
+Both APKs use the same permanent certificate and the same monotonically increasing version code for a release.
 
 ## First AYN Thor transition
 

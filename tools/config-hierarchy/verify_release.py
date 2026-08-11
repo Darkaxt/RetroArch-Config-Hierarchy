@@ -35,11 +35,6 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def verify_alias(dated_path, alias_path):
-    if sha256(dated_path) != sha256(alias_path):
-        raise ValueError(f"Stable alias is not byte-identical: {alias_path}")
-
-
 def parse_aapt_badging(output):
     match = re.search(
         r"package:\s+name='([^']+)'\s+versionCode='(\d+)'\s+versionName='([^']*)'",
