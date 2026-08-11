@@ -56,9 +56,9 @@ The pipeline verifies the final signed APKs for archive integrity, package ID, A
 It then:
 
 1. pushes the verified commit to a temporary staging ref;
-2. creates a draft prerelease and uploads all four assets;
-3. downloads all assets from GitHub and checks the complete name/hash manifest;
-4. advances the maintained branch with force-with-lease;
+2. advances the maintained branch with force-with-lease so the release target is reachable from the default branch;
+3. creates a draft prerelease and uploads all four assets;
+4. downloads all assets from GitHub and checks the complete name/hash manifest;
 5. publishes the draft as a prerelease and removes the staging ref.
 
 An error deletes the draft/tag and staging ref. If the maintained branch had already advanced, cleanup restores the prior revision with force-with-lease. Historical published tags are never changed.
