@@ -24,6 +24,8 @@ The signed validation build used the full asset payload extracted from the valid
 
 On 2026-08-12, the release contract was simplified for future nightlies. The dated tag and release notes retain upstream identity, while publication now uploads and re-downloads only `RetroArch.apk` and `RetroArch_aarch64.apk`. The inaugural four-asset release remains unchanged as historical evidence. The full suite passed 37 tests, actionlint passed, and regression coverage requires a two-entry manifest while rejecting dated upload paths in the workflow.
 
+GitHub Actions run [`31540487454`](https://github.com/Darkaxt/RetroArch-Config-Hierarchy/actions/runs/31540487454) completed the full build, verification, transactional upload, remote re-download, and publication path in 9m26s. Public prerelease [`nightly-2026-08-11-0af3e17`](https://github.com/Darkaxt/RetroArch-Config-Hierarchy/releases/tag/nightly-2026-08-11-0af3e17) contains exactly the two stable assets. GitHub reports SHA-256 `7710b0694ca633444496748ff2da2759df50ec1ed77f987142a1d269d154f61c` for `RetroArch.apk` and `62cacfbbc287dffb022cf3a8b97b3fd0f28b0b36e4a3e85aa74fba37bb7632af` for `RetroArch_aarch64.apk`.
+
 ## Design acceptance mapping
 
 | Design requirement | Evidence | Result |
@@ -33,7 +35,7 @@ On 2026-08-12, the release contract was simplified for future nightlies. The dat
 | Maintain the fork patch without semantic auto-resolution | The workflow rebases the maintained commit stack on the proven source and stops on conflict. | Passed by inspection and orchestration coverage |
 | Build both variants together | One signed Gradle invocation produced and tested both release variants. | Passed |
 | Validate signer, package, ABI, version, alignment, integrity, and provenance | Independent verification passed for both signed outputs with the expected, matching version and permanent certificate. | Passed |
-| Publish the verified stable assets without duplicates | The inaugural release passed the original four-asset contract. Future-release tests require exactly the two stable names, and publication verifies the complete two-entry remote manifest before promotion. | Passed live for artifact integrity; simplified contract passed in automation tests |
+| Publish the verified stable assets without duplicates | The August 11 public prerelease contains exactly the two stable names; the workflow re-downloaded both and verified the complete name/hash manifest before promotion. | Passed live |
 | Repeated heartbeat is idempotent | Released dates are a no-op; changed previously processed upstream artifacts are rejected. | Passed |
 | Publication is transactional | Failed publication attempts removed their draft/staging state and restored `main`; the successful run advanced `main`, verified all remote assets, and then promoted the draft. | Passed live |
 | Obtainium/ObtainX can update in place | Both package IDs use one pinned permanent signer and a shared deterministic monotonic version code. | Artifact contract passed; first/second device install remains a deployment gate |
