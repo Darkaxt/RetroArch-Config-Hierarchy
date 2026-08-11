@@ -158,6 +158,20 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("GH_TOKEN: ${{ secrets.RELEASE_PAT }}", workflow)
         self.assertIn("gh auth setup-git", workflow)
 
+    def test_release_commit_reaches_main_before_draft_creation(self):
+        repository = TOOLS_DIR.parents[1]
+        workflow = (repository / ".github/workflows/config-hierarchy-nightly.yml").read_text(
+            encoding="utf-8"
+        )
+        publication = workflow.split(
+            "- name: Draft, re-download, and transactionally publish prerelease", 1
+        )[1]
+        advance = publication.index('origin "HEAD:refs/heads/${ORIGINAL_BRANCH}"')
+        mark_advanced = publication.index("branch_advanced=true")
+        create_draft = publication.index('gh release create "$tag"')
+        self.assertLess(advance, create_draft)
+        self.assertLess(mark_advanced, create_draft)
+
 
 class ElfRevisionTests(unittest.TestCase):
     def test_extracts_revision_from_named_elf_symbol(self):
