@@ -177,6 +177,19 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertLess(advance, create_draft)
         self.assertLess(mark_advanced, create_draft)
 
+    def test_publication_uploads_only_stable_asset_names(self):
+        repository = TOOLS_DIR.parents[1]
+        workflow = (repository / ".github/workflows/config-hierarchy-nightly.yml").read_text(
+            encoding="utf-8"
+        )
+        publication = workflow.split(
+            "- name: Draft, re-download, and transactionally publish prerelease", 1
+        )[1]
+        self.assertIn('"$release_dir/RetroArch.apk"', publication)
+        self.assertIn('"$release_dir/RetroArch_aarch64.apk"', publication)
+        self.assertNotIn('"$release_dir/${date}-RetroArch.apk"', publication)
+        self.assertNotIn('"$release_dir/${date}-RetroArch_aarch64.apk"', publication)
+
 
 class ElfRevisionTests(unittest.TestCase):
     def test_extracts_revision_from_named_elf_symbol(self):
@@ -227,18 +240,6 @@ class ReleaseVerificationTests(unittest.TestCase):
     def test_missing_signing_inputs_fail_preflight(self):
         with self.assertRaisesRegex(ValueError, "RELEASE_STORE_FILE"):
             verify_release.require_signing_environment({})
-
-    def test_aliases_must_be_byte_identical(self):
-        with tempfile.TemporaryDirectory() as directory:
-            directory = Path(directory)
-            dated = directory / "2026-08-09-RetroArch.apk"
-            alias = directory / "RetroArch.apk"
-            dated.write_bytes(b"same")
-            alias.write_bytes(b"same")
-            verify_release.verify_alias(dated, alias)
-            alias.write_bytes(b"different")
-            with self.assertRaisesRegex(ValueError, "alias"):
-                verify_release.verify_alias(dated, alias)
 
     def test_aapt_badging_parser_returns_package_and_versions(self):
         output = "package: name='com.retroarch.aarch64' versionCode='123' versionName='1.2.3_GIT'\n"
@@ -327,6 +328,27 @@ class ReleaseVerificationTests(unittest.TestCase):
 
 
 class ReleaseOrchestrationTests(unittest.TestCase):
+    def test_release_manifest_contains_only_stable_assets(self):
+        self.assertTrue(
+            hasattr(run_release, "prepare_release_assets"),
+            "prepare_release_assets is required",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            normal = directory / "RetroArch.apk"
+            aarch64 = directory / "RetroArch_aarch64.apk"
+            normal.write_bytes(b"normal")
+            aarch64.write_bytes(b"aarch64")
+            (directory / "2026-08-10-RetroArch.apk").write_bytes(b"noise")
+
+            self.assertEqual(
+                {
+                    normal.name: hashlib.sha256(b"normal").hexdigest(),
+                    aarch64.name: hashlib.sha256(b"aarch64").hexdigest(),
+                },
+                run_release.prepare_release_assets(directory),
+            )
+
     def test_version_code_is_monotonic_when_clock_does_not_advance(self):
         self.assertEqual(101, run_release.next_version_code(100, 99))
         self.assertEqual(123, run_release.next_version_code(100, 123))
