@@ -67,7 +67,7 @@ jobs:
             --directory "$RUNNER_TEMP/upstream" > "$RUNNER_TEMP/download.json"
           cat "$RUNNER_TEMP/download.json"
 
-      - name: Resolve exact source revision embedded in both upstream APKs
+      - name: Select public source revision for the upstream APK pair
         if: steps.discovery.outputs.ready == 'true'
         shell: bash
         run: |
@@ -75,14 +75,21 @@ jobs:
           git remote get-url upstream >/dev/null 2>&1 || git remote add upstream "$UPSTREAM_REPOSITORY"
           git fetch --force --tags upstream master
           previous_revision="$(jq -r '.last_state.upstream_revision // empty' "$RUNNER_TEMP/discovery.json")"
+          fallback_revision="$(git rev-parse upstream/master)"
           python3 tools/config-hierarchy/run_release.py resolve \
             --normal-apk "$(jq -r '.normal_path' "$RUNNER_TEMP/download.json")" \
             --aarch64-apk "$(jq -r '.aarch64_path' "$RUNNER_TEMP/download.json")" \
-            --previous-revision "$previous_revision" > "$RUNNER_TEMP/resolution.json"
+            --previous-revision "$previous_revision" \
+            --fallback-revision "$fallback_revision" > "$RUNNER_TEMP/resolution.json"
           cat "$RUNNER_TEMP/resolution.json"
           echo "UPSTREAM_REVISION=$(jq -r '.upstream_revision' "$RUNNER_TEMP/resolution.json")" >> "$GITHUB_ENV"
+          echo "UPSTREAM_APK_REVISION=$(jq -r '.upstream_apk_revision' "$RUNNER_TEMP/resolution.json")" >> "$GITHUB_ENV"
+          echo "UPSTREAM_REVISION_EXACT=$(jq -r '.upstream_revision_exact' "$RUNNER_TEMP/resolution.json")" >> "$GITHUB_ENV"
+          if [[ "$(jq -r '.upstream_revision_exact' "$RUNNER_TEMP/resolution.json")" != "true" ]]; then
+            echo "::warning::Upstream APK revision is not public; building from upstream/master and disclosing the mismatch."
+          fi
 
-      - name: Rebase maintained patch stack onto proven upstream source
+      - name: Rebase maintained patch stack onto selected public upstream source
         if: steps.discovery.outputs.ready == 'true'
         shell: bash
         run: |
@@ -95,7 +102,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git rebase --onto "$UPSTREAM_REVISION" "$base_revision"
 
-      - name: Embed exact provenance and reuse upstream packaged assets
+      - name: Embed disclosed provenance and reuse upstream packaged assets
         if: steps.discovery.outputs.ready == 'true'
         shell: bash
         run: |
@@ -105,6 +112,8 @@ jobs:
           python3 tools/config-hierarchy/run_release.py provenance \
             --date "${{ steps.discovery.outputs.date }}" \
             --upstream-revision "$UPSTREAM_REVISION" \
+            --upstream-apk-revision "$UPSTREAM_APK_REVISION" \
+            --upstream-revision-exact "$UPSTREAM_REVISION_EXACT" \
             --normal-hash "$(jq -r '.normal.sha256' "$RUNNER_TEMP/download.json")" \
             --aarch64-hash "$(jq -r '.aarch64.sha256' "$RUNNER_TEMP/download.json")" \
             --patch-revision "$patch_revision" \
