@@ -41,6 +41,7 @@ Its credentials are stored for the current Windows account in the DPAPI-protecte
 
 Configure these GitHub Actions secrets:
 
+- `RELEASE_PAT`: a repository-scoped GitHub token with `repo` and `workflow` access, used to push the rebased release commit when it contains upstream workflow-file changes;
 - `RELEASE_KEYSTORE_BASE64`: base64 of the PKCS#12 keystore;
 - `RELEASE_STORE_PASSWORD`;
 - `RELEASE_KEY_ALIAS`: `retroarch-config-hierarchy`;
