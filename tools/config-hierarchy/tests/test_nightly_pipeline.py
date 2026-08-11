@@ -55,6 +55,23 @@ class NightlyDiscoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(nightly_pipeline.ProvenanceError, "resolve"):
             nightly_pipeline.resolve_pair_revision("abc1234", "abc1234", lambda value: None)
 
+    def test_unpublished_revision_uses_disclosed_public_fallback(self):
+        fallback = "b" * 40
+        resolution = nightly_pipeline.select_build_revision(
+            "31c4e00", "31c4e00", lambda value: None, fallback
+        )
+        self.assertEqual("31c4e00", resolution.apk_reported_revision)
+        self.assertEqual(fallback, resolution.build_revision)
+        self.assertFalse(resolution.exact)
+
+    def test_resolvable_revision_wins_over_public_fallback(self):
+        exact = "a" * 40
+        resolution = nightly_pipeline.select_build_revision(
+            "abc1234", "abc1234", lambda value: exact, "b" * 40
+        )
+        self.assertEqual(exact, resolution.build_revision)
+        self.assertTrue(resolution.exact)
+
     def test_revision_rollback_is_rejected(self):
         with self.assertRaisesRegex(nightly_pipeline.ProvenanceError, "rollback"):
             nightly_pipeline.ensure_forward_revision("old", "new", lambda old, new: False)
@@ -215,6 +232,8 @@ class ReleaseVerificationTests(unittest.TestCase):
             {
                 "nightly_date": "2026-08-09",
                 "upstream_revision": "a" * 40,
+                "upstream_apk_revision": "31c4e00",
+                "upstream_revision_exact": False,
                 "fork_revision": "b" * 40,
                 "patch_revision": "4c1a5e4182",
                 "signer_sha256": "CCDD",
@@ -226,6 +245,8 @@ class ReleaseVerificationTests(unittest.TestCase):
         for expected in ("2026-08-09", "a" * 40, "b" * 40, "4c1a5e4182", "CCDD", "deadbeef"):
             self.assertIn(expected, body)
         self.assertIn("official RetroArch APK must be uninstalled", body)
+        self.assertIn("APK-reported revision: `31c4e00`", body)
+        self.assertIn("Exact APK/source match: `false`", body)
 
 
 class ReleaseOrchestrationTests(unittest.TestCase):
@@ -253,6 +274,24 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             self.assertEqual("a" * 40, embedded["upstream_revision"])
             self.assertEqual("public-config-v1", embedded["patch_revision"])
             self.assertNotIn("previous_version_code", embedded)
+
+    def test_provenance_discloses_unpublished_apk_revision_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            metadata = run_release.write_provenance(
+                date="2026-08-10",
+                upstream_revision="b" * 40,
+                upstream_apk_revision="31c4e00",
+                upstream_revision_exact=False,
+                normal_hash="normal-hash",
+                aarch64_hash="aarch64-hash",
+                patch_revision="public-config-v1",
+                previous_version_code=123,
+                state_path=directory / "state.json",
+                asset_path=directory / "provenance.json",
+            )
+            self.assertEqual("31c4e00", metadata["upstream_apk_revision"])
+            self.assertFalse(metadata["upstream_revision_exact"])
 
     def test_provenance_state_records_upstream_remote_identity(self):
         remote = {
