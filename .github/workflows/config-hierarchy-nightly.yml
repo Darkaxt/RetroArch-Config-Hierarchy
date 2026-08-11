@@ -253,10 +253,11 @@ jobs:
         if: steps.discovery.outputs.ready == 'true'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
         run: |
           set -euo pipefail
-          gh auth setup-git
+          git remote set-url origin "https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git"
           date='${{ steps.discovery.outputs.date }}'
           tag="nightly-${date}-${UPSTREAM_REVISION:0:7}"
           staging_branch="config-hierarchy-staging/${date}-${GITHUB_RUN_ID}"
