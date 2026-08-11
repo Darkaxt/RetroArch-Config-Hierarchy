@@ -82,11 +82,15 @@ def write_provenance(
     state_path,
     asset_path,
     upstream_apk_remote=None,
+    upstream_apk_revision=None,
+    upstream_revision_exact=True,
 ):
     embedded = {
         "schema": 1,
         "nightly_date": date,
         "upstream_revision": upstream_revision,
+        "upstream_apk_revision": upstream_apk_revision or upstream_revision[:7],
+        "upstream_revision_exact": bool(upstream_revision_exact),
         "upstream_apk_sha256": {"normal": normal_hash, "aarch64": aarch64_hash},
         "patch_revision": patch_revision,
     }
@@ -123,6 +127,10 @@ def assemble_release_metadata(state, normal, aarch64, assets, fork_revision):
     return {
         "nightly_date": state["date"],
         "upstream_revision": state["upstream_revision"],
+        "upstream_apk_revision": state.get(
+            "upstream_apk_revision", state["upstream_revision"][:7]
+        ),
+        "upstream_revision_exact": state.get("upstream_revision_exact", True),
         "fork_revision": fork_revision,
         "patch_revision": state["patch_revision"],
         "signer_sha256": normal["signer_sha256"],
@@ -251,15 +259,22 @@ def command_download(args):
 def command_resolve(args):
     normal_revision = extract_revision_from_apk(args.normal_apk)
     aarch64_revision = extract_revision_from_apk(args.aarch64_apk)
-    full_revision = nightly_pipeline.resolve_pair_revision(
-        normal_revision, aarch64_revision, resolve_git_revision
+    resolution = nightly_pipeline.select_build_revision(
+        normal_revision,
+        aarch64_revision,
+        resolve_git_revision,
+        args.fallback_revision,
     )
     nightly_pipeline.ensure_forward_revision(
-        args.previous_revision, full_revision, git_is_ancestor
+        args.previous_revision, resolution.build_revision, git_is_ancestor
     )
     print(
         json.dumps(
-            {"short_revision": normal_revision, "upstream_revision": full_revision},
+            {
+                "upstream_apk_revision": resolution.apk_reported_revision,
+                "upstream_revision": resolution.build_revision,
+                "upstream_revision_exact": resolution.exact,
+            },
             sort_keys=True,
         )
     )
@@ -286,6 +301,8 @@ def command_provenance(args):
         state_path=args.state,
         asset_path=args.asset,
         upstream_apk_remote=upstream_apk_remote,
+        upstream_apk_revision=args.upstream_apk_revision,
+        upstream_revision_exact=args.upstream_revision_exact == "true",
     )
     print(json.dumps(state, sort_keys=True))
 
@@ -356,11 +373,16 @@ def build_parser():
     resolve.add_argument("--normal-apk", type=Path, required=True)
     resolve.add_argument("--aarch64-apk", type=Path, required=True)
     resolve.add_argument("--previous-revision")
+    resolve.add_argument("--fallback-revision")
     resolve.set_defaults(function=command_resolve)
 
     provenance = subparsers.add_parser("provenance")
     provenance.add_argument("--date", required=True)
     provenance.add_argument("--upstream-revision", required=True)
+    provenance.add_argument("--upstream-apk-revision", required=True)
+    provenance.add_argument(
+        "--upstream-revision-exact", choices=("true", "false"), required=True
+    )
     provenance.add_argument("--normal-hash", required=True)
     provenance.add_argument("--aarch64-hash", required=True)
     provenance.add_argument("--patch-revision", required=True)
