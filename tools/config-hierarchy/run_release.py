@@ -18,7 +18,7 @@ from pathlib import PurePosixPath
 import nightly_pipeline
 from extract_apk_revision import extract_revision_from_apk
 from release_notes import render as render_release_notes
-from verify_release import require_signing_environment, sha256, verify_alias
+from verify_release import require_signing_environment, sha256
 
 
 def validate_apk(path):
@@ -165,16 +165,13 @@ def git_is_ancestor(old_revision, new_revision):
     ).returncode == 0
 
 
-def prepare_aliases(directory, date):
+def prepare_release_assets(directory):
     directory = Path(directory)
-    mapping = {
-        directory / f"{date}-RetroArch.apk": directory / "RetroArch.apk",
-        directory / f"{date}-RetroArch_aarch64.apk": directory / "RetroArch_aarch64.apk",
-    }
-    for dated, alias in mapping.items():
-        shutil.copyfile(dated, alias)
-        verify_alias(dated, alias)
-    return {path.name: sha256(path) for pair in mapping.items() for path in pair}
+    assets = (
+        directory / "RetroArch.apk",
+        directory / "RetroArch_aarch64.apk",
+    )
+    return {path.name: sha256(path) for path in assets}
 
 
 def extract_upstream_assets(apk_path, target_directory):
@@ -307,8 +304,8 @@ def command_provenance(args):
     print(json.dumps(state, sort_keys=True))
 
 
-def command_aliases(args):
-    print(json.dumps(prepare_aliases(args.directory, args.date), sort_keys=True))
+def command_release_assets(args):
+    print(json.dumps(prepare_release_assets(args.directory), sort_keys=True))
 
 
 def command_extract_assets(args):
@@ -392,10 +389,9 @@ def build_parser():
     provenance.add_argument("--download-metadata", type=Path)
     provenance.set_defaults(function=command_provenance)
 
-    aliases = subparsers.add_parser("aliases")
-    aliases.add_argument("--date", required=True)
-    aliases.add_argument("--directory", type=Path, required=True)
-    aliases.set_defaults(function=command_aliases)
+    release_assets = subparsers.add_parser("release-assets")
+    release_assets.add_argument("--directory", type=Path, required=True)
+    release_assets.set_defaults(function=command_release_assets)
 
     extract_assets = subparsers.add_parser("extract-assets")
     extract_assets.add_argument("--apk", type=Path, required=True)
