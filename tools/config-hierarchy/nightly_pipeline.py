@@ -98,6 +98,14 @@ def check_processed_remote_metadata(state, lookup):
     if not remote:
         return
 
+    reviewed_replacements = state.get("reviewed_upstream_replacements", [])
+    if reviewed_replacements:
+        remote = reviewed_replacements[-1].get("upstream_apk_remote")
+        if not remote:
+            raise ProvenanceError(
+                "Reviewed upstream replacement lacks remote provenance; manual review is required"
+            )
+
     for variant in ("normal", "aarch64"):
         expected = remote.get(variant)
         if not expected:
