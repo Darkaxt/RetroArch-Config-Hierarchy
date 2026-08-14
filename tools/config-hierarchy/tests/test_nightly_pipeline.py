@@ -137,6 +137,92 @@ class NightlyDiscoveryTests(unittest.TestCase):
             ],
         )
 
+    def test_reviewed_replacement_becomes_remote_metadata_baseline(self):
+        original = {
+            "normal": {
+                "url": "https://example/RetroArch.apk",
+                "etag": "original-normal",
+                "last_modified": "yesterday",
+                "content_length": "100",
+            },
+            "aarch64": {
+                "url": "https://example/RetroArch_aarch64.apk",
+                "etag": "original-aarch64",
+                "last_modified": "yesterday",
+                "content_length": "90",
+            },
+        }
+        reviewed = {
+            "normal": {
+                **original["normal"],
+                "etag": "reviewed-normal",
+                "last_modified": "today",
+                "content_length": "101",
+            },
+            "aarch64": {
+                **original["aarch64"],
+                "etag": "reviewed-aarch64",
+                "last_modified": "today",
+                "content_length": "91",
+            },
+        }
+        state = {
+            "date": "2026-08-12",
+            "upstream_apk_remote": original,
+            "reviewed_upstream_replacements": [
+                {
+                    "reviewed_at": "2026-08-14T20:45:00Z",
+                    "upstream_apk_remote": reviewed,
+                    "upstream_apk_sha256": {
+                        "normal": "reviewed-normal-hash",
+                        "aarch64": "reviewed-aarch64-hash",
+                    },
+                    "upstream_apk_revision": "31c4e00",
+                }
+            ],
+        }
+
+        nightly_pipeline.check_processed_remote_metadata(
+            state,
+            lambda url: reviewed[
+                "aarch64" if "aarch64" in url else "normal"
+            ],
+        )
+        self.assertEqual(original, state["upstream_apk_remote"])
+
+    def test_change_after_reviewed_replacement_is_rejected(self):
+        reviewed = {
+            "normal": {
+                "url": "https://example/RetroArch.apk",
+                "etag": "reviewed-normal",
+                "last_modified": "today",
+                "content_length": "101",
+            },
+            "aarch64": {
+                "url": "https://example/RetroArch_aarch64.apk",
+                "etag": "reviewed-aarch64",
+                "last_modified": "today",
+                "content_length": "91",
+            },
+        }
+        state = {
+            "date": "2026-08-12",
+            "upstream_apk_remote": reviewed,
+            "reviewed_upstream_replacements": [
+                {"upstream_apk_remote": reviewed}
+            ],
+        }
+
+        def lookup(url):
+            variant = "aarch64" if "aarch64" in url else "normal"
+            actual = reviewed[variant].copy()
+            if variant == "normal":
+                actual["etag"] = "changed-again"
+            return actual
+
+        with self.assertRaisesRegex(nightly_pipeline.ProvenanceError, "metadata changed"):
+            nightly_pipeline.check_processed_remote_metadata(state, lookup)
+
 
 class WorkflowContractTests(unittest.TestCase):
     def test_android_command_line_tools_are_set_up_before_sdkmanager(self):
