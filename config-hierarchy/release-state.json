@@ -2,6 +2,31 @@
   "date": "2026-08-12",
   "nightly_date": "2026-08-12",
   "patch_revision": "android-public-config-v1",
+  "reviewed_upstream_replacements": [
+    {
+      "reason": "Libretro rebuilt both dated APKs after the fork release; both replacements are valid APKs and retain embedded revision 31c4e00",
+      "reviewed_at": "2026-08-14T20:43:15Z",
+      "upstream_apk_remote": {
+        "aarch64": {
+          "content_length": "194084359",
+          "etag": "\"3562925971\"",
+          "last_modified": "Wed, 12 Aug 2026 22:06:44 GMT",
+          "url": "https://buildbot.libretro.com/nightly/android/2026-08-12-RetroArch_aarch64.apk"
+        },
+        "normal": {
+          "content_length": "206890149",
+          "etag": "\"1631398512\"",
+          "last_modified": "Wed, 12 Aug 2026 22:09:32 GMT",
+          "url": "https://buildbot.libretro.com/nightly/android/2026-08-12-RetroArch.apk"
+        }
+      },
+      "upstream_apk_revision": "31c4e00",
+      "upstream_apk_sha256": {
+        "aarch64": "9b8e42bd78441c35f57458e09abc131b3c93cecc5ee969f728bbda110514d9ba",
+        "normal": "384c7614c1c67e6d3b9178b95102a40b11564457740c0839e4d93da8b68c92be"
+      }
+    }
+  ],
   "schema": 1,
   "upstream_apk_remote": {
     "aarch64": {
