@@ -87,7 +87,7 @@ class NightlyDiscoveryTests(unittest.TestCase):
                 "2026-08-09", {"normal": "changed", "aarch64": "two"}, state
             )
 
-    def test_changed_processed_remote_metadata_is_rejected(self):
+    def test_changed_processed_remote_metadata_is_reported_without_blocking(self):
         state = {
             "date": "2026-08-09",
             "upstream_apk_remote": {
@@ -113,8 +113,10 @@ class NightlyDiscoveryTests(unittest.TestCase):
                 actual["etag"] = "replacement"
             return actual
 
-        with self.assertRaisesRegex(nightly_pipeline.ProvenanceError, "metadata changed"):
-            nightly_pipeline.check_processed_remote_metadata(state, lookup)
+        self.assertEqual(
+            [{"variant": "normal", "changed_fields": ["etag"]}],
+            nightly_pipeline.check_processed_remote_metadata(state, lookup),
+        )
 
     def test_matching_processed_remote_metadata_is_allowed(self):
         metadata = {
@@ -130,11 +132,44 @@ class NightlyDiscoveryTests(unittest.TestCase):
                 "aarch64": {**metadata, "url": "https://example/RetroArch_aarch64.apk"},
             },
         }
-        nightly_pipeline.check_processed_remote_metadata(
-            state,
-            lambda url: state["upstream_apk_remote"][
-                "aarch64" if "aarch64" in url else "normal"
+        self.assertEqual(
+            [],
+            nightly_pipeline.check_processed_remote_metadata(
+                state,
+                lambda url: state["upstream_apk_remote"][
+                    "aarch64" if "aarch64" in url else "normal"
+                ],
+            ),
+        )
+
+    def test_processed_remote_lookup_failure_is_reported_without_blocking(self):
+        metadata = {
+            "url": "https://example/RetroArch.apk",
+            "etag": "same",
+            "last_modified": "today",
+            "content_length": "100",
+        }
+        state = {
+            "date": "2026-08-09",
+            "upstream_apk_remote": {
+                "normal": metadata,
+                "aarch64": {**metadata, "url": "https://example/RetroArch_aarch64.apk"},
+            },
+        }
+
+        def lookup(url):
+            if "aarch64" not in url:
+                raise OSError("temporary upstream TLS failure")
+            return state["upstream_apk_remote"]["aarch64"]
+
+        self.assertEqual(
+            [
+                {
+                    "variant": "normal",
+                    "lookup_error": "temporary upstream TLS failure",
+                }
             ],
+            nightly_pipeline.check_processed_remote_metadata(state, lookup),
         )
 
     def test_reviewed_replacement_becomes_remote_metadata_baseline(self):
@@ -182,15 +217,18 @@ class NightlyDiscoveryTests(unittest.TestCase):
             ],
         }
 
-        nightly_pipeline.check_processed_remote_metadata(
-            state,
-            lambda url: reviewed[
-                "aarch64" if "aarch64" in url else "normal"
-            ],
+        self.assertEqual(
+            [],
+            nightly_pipeline.check_processed_remote_metadata(
+                state,
+                lambda url: reviewed[
+                    "aarch64" if "aarch64" in url else "normal"
+                ],
+            ),
         )
         self.assertEqual(original, state["upstream_apk_remote"])
 
-    def test_change_after_reviewed_replacement_is_rejected(self):
+    def test_change_after_reviewed_replacement_is_reported(self):
         reviewed = {
             "normal": {
                 "url": "https://example/RetroArch.apk",
@@ -220,8 +258,10 @@ class NightlyDiscoveryTests(unittest.TestCase):
                 actual["etag"] = "changed-again"
             return actual
 
-        with self.assertRaisesRegex(nightly_pipeline.ProvenanceError, "metadata changed"):
-            nightly_pipeline.check_processed_remote_metadata(state, lookup)
+        self.assertEqual(
+            [{"variant": "normal", "changed_fields": ["etag"]}],
+            nightly_pipeline.check_processed_remote_metadata(state, lookup),
+        )
 
 
 class WorkflowContractTests(unittest.TestCase):
