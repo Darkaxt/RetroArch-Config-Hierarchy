@@ -227,7 +227,21 @@ def _write_json(path, value):
 
 def command_discover(args):
     state = load_state(args.state)
-    nightly_pipeline.check_processed_remote_metadata(state, remote_headers)
+    metadata_changes = nightly_pipeline.check_processed_remote_metadata(
+        state, remote_headers
+    )
+    for change in metadata_changes:
+        if "lookup_error" in change:
+            detail = f"lookup unavailable: {change['lookup_error']}"
+        else:
+            detail = ", ".join(change["changed_fields"])
+        print(
+            "warning: upstream metadata check after publication reported "
+            f"{state.get('date')} {change['variant']} "
+            f"({detail}); preserving the published "
+            "release provenance and continuing with newer nightlies",
+            file=sys.stderr,
+        )
     with urllib.request.urlopen(args.index_url) as response:
         html = response.read().decode("utf-8", errors="replace")
     pairs = nightly_pipeline.discover_pairs(html, args.index_url)
