@@ -3,11 +3,11 @@
 # RetroArch
 
 > **RetroArch Config Hierarchy fork:** Ordinary non-Play Android launches use
-> `/storage/emulated/0/RetroArch/retroarch.cfg`. A non-empty caller
-> `CONFIGFILE` remains authoritative. Existing public configs win, and a legacy
-> `RetroArch/config/retroarch.cfg` or app-specific config is copied byte-for-byte
-> only when the primary public file is absent. Google Play flavors retain
-> upstream app-specific storage behavior.
+> `/storage/emulated/0/RetroArch/retroarch.cfg`. A genuine caller-selected
+> `CONFIGFILE` remains authoritative; only RetroArch's historical app-specific
+> default is treated as an alias of the public master. No runtime copying or
+> synchronization occurs. Google Play flavors retain upstream app-specific
+> storage behavior.
 >
 > This branch follows completed upstream Android nightlies through a fail-closed
 > signed prerelease pipeline. See
