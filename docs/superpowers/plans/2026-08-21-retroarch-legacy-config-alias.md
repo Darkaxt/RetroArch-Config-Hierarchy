@@ -17,12 +17,12 @@
 - Modify: `pkg/android/phoenix/src/test/java/com/retroarch/browser/preferences/util/ActiveConfigPathTest.java`
 - Test: `pkg/android/phoenix/src/test/java/com/retroarch/browser/preferences/util/ActiveConfigPathTest.java`
 
-- [ ] Add tests proving that null and empty explicit paths resolve the public default.
-- [ ] Add tests proving that an exact legacy app-specific default, and a canonically equivalent spelling of it, resolve the public default.
-- [ ] Add tests proving that a custom sibling path, the same filename in another directory, and an explicit public path remain explicit without unnecessary default resolution.
-- [ ] Add tests proving that a null legacy path and canonicalization failure preserve the explicit path.
-- [ ] Run `gradlew.bat :phoenix:testNormalDebugUnitTest --tests com.retroarch.browser.preferences.util.ActiveConfigPathTest` from `pkg/android` and confirm the new tests fail because the compatibility selector API does not exist.
-- [ ] Commit the failing regression tests with message `test: cover legacy config compatibility alias`.
+- [x] Add tests proving that null and empty explicit paths resolve the public default.
+- [x] Add tests proving that an exact legacy app-specific default, and a canonically equivalent spelling of it, resolve the public default.
+- [x] Add tests proving that a custom sibling path, the same filename in another directory, and an explicit public path remain explicit without unnecessary default resolution.
+- [x] Add tests proving that a null legacy path and canonicalization failure preserve the explicit path.
+- [x] Run the focused `ActiveConfigPathTest` task and confirm the new tests fail because the compatibility selector API does not exist.
+- [x] Commit the failing regression tests with message `test: cover legacy config compatibility alias`.
 
 ## Task 2: Implement the minimal path selector
 
@@ -31,12 +31,12 @@
 - Modify: `pkg/android/phoenix-common/src/com/retroarch/browser/preferences/util/ActiveConfigPath.java`
 - Test: `pkg/android/phoenix/src/test/java/com/retroarch/browser/preferences/util/ActiveConfigPathTest.java`
 
-- [ ] Add a selector overload accepting the explicit path, nullable legacy default path, and lazy public-default provider.
-- [ ] Compare the explicit and legacy paths through `File.getCanonicalPath()` and redirect only when they are equivalent.
-- [ ] Preserve the explicit path when canonicalization throws, the legacy path is unavailable, or the explicit path is any genuine custom path.
-- [ ] Keep the existing two-argument selector as a compatibility overload that supplies no legacy alias.
-- [ ] Run the focused `ActiveConfigPathTest` and require all tests to pass.
-- [ ] Run `git diff --check` and commit with message `feat: alias legacy Android config default`.
+- [x] Add a selector overload accepting the explicit path, nullable legacy default path, and lazy public-default provider.
+- [x] Compare the explicit and legacy paths through `File.getCanonicalPath()` and redirect only when they are equivalent.
+- [x] Preserve the explicit path when canonicalization throws, the legacy path is unavailable, or the explicit path is any genuine custom path.
+- [x] Keep the existing two-argument selector as a compatibility overload that supplies no legacy alias.
+- [x] Run the focused `ActiveConfigPathTest` and require all tests to pass.
+- [x] Run `git diff --check` and commit with message `feat: alias legacy Android config default`.
 
 ## Task 3: Expose the exact legacy default and normalize all modern launch paths
 
@@ -47,16 +47,16 @@
 - Modify: `pkg/android/phoenix/src/com/retroarch/browser/retroactivity/RetroActivityFuture.java`
 - Modify: `pkg/android/phoenix/src/test/java/com/retroarch/browser/preferences/util/ActiveConfigPathTest.java`
 
-- [ ] Add the smallest failing test needed for any selector behavior discovered while wiring the Android call sites, then run it and confirm the expected failure before production edits.
-- [ ] Factor the active config filename calculation in `UserPreferences` so the public and legacy candidates always use the same filename.
-- [ ] Expose a nullable legacy app-specific config candidate only for non-Play builds; do not create, copy, or modify the legacy file.
-- [ ] Update `MainMenuActivity` to pass the legacy candidate into the shared selector while retaining `updateConfigFile()` when the public default is selected.
-- [ ] In `RetroActivityFuture.onCreate`, normalize `CONFIGFILE` on the existing Intent before `super.onCreate()` so native startup receives the canonical public selection.
-- [ ] Normalize incoming intents before `super.onNewIntent()` and before any restart or `setIntent()` path.
-- [ ] Make later Java-side config reads use the already normalized Intent, with the same safe fallback when the extra is absent.
-- [ ] Compile normal and Play Store Java variants with `gradlew.bat :phoenix:compileNormalDebugJavaWithJavac :phoenix:compilePlayStoreNormalReleaseJavaWithJavac :phoenix:compilePlayStorePlusReleaseJavaWithJavac`.
-- [ ] Run the focused selector tests and the complete `:phoenix:testNormalDebugUnitTest` suite.
-- [ ] Commit with message `feat: normalize legacy config launch intents`.
+- [x] Add the smallest failing test needed for any selector behavior discovered while wiring the Android call sites, then run it and confirm the expected failure before production edits.
+- [x] Factor the active config filename calculation in `UserPreferences` so the public and legacy candidates always use the same filename.
+- [x] Expose a nullable legacy app-specific config candidate only for non-Play builds; do not create, copy, or modify the legacy file.
+- [x] Update `MainMenuActivity` to pass the legacy candidate into the shared selector while retaining `updateConfigFile()` when the public default is selected.
+- [x] In `RetroActivityFuture.onCreate`, normalize `CONFIGFILE` on the existing Intent before `super.onCreate()` so native startup receives the canonical public selection.
+- [x] Normalize incoming intents before `super.onNewIntent()` and before any restart or `setIntent()` path.
+- [x] Make later Java-side config reads use the already normalized Intent, with the same safe fallback when the extra is absent.
+- [x] Compile normal and Play Store Java variants.
+- [x] Run the focused selector tests and the complete `testNormalDebugUnitTest` suite.
+- [x] Commit with message `feat: normalize legacy config launch intents`.
 
 ## Task 4: Validate stage 1 against the design specification
 
@@ -65,13 +65,13 @@
 - Create: `docs/validation/2026-08-21-legacy-config-alias.md`
 - Review: `docs/superpowers/specs/2026-08-21-retroarch-legacy-config-alias-design.md`
 
-- [ ] Trace every current `ActiveConfigPath.select`, `CONFIGFILE`, and `getDefaultConfigPath` call site and record why the implemented boundary covers direct human launches without changing unrelated legacy/Play variants.
-- [ ] Confirm there is no timestamp comparison, copying, credential-specific logic, or mutation of a genuine custom config path.
-- [ ] Run `python -m unittest discover -s tools/config-hierarchy/tests -p 'test_*.py'` and require zero failures.
-- [ ] Run actionlint on `.github/workflows/config-hierarchy-nightly.yml` and require zero findings.
-- [ ] Run `git diff --check` and inspect the full diff against every acceptance case in the design specification.
-- [ ] Record commands, results, and the design-spec decision table in the validation document.
-- [ ] Commit with message `docs: validate legacy config compatibility alias`.
+- [x] Trace every current `ActiveConfigPath.select`, `CONFIGFILE`, and `getDefaultConfigPath` call site and record why the implemented boundary covers direct human launches without changing unrelated legacy/Play variants.
+- [x] Confirm there is no timestamp comparison, copying, credential-specific logic, or mutation of a genuine custom config path.
+- [x] Run `python -m unittest discover -s tools/config-hierarchy/tests -p 'test_*.py'` and require zero failures.
+- [x] Run actionlint on `.github/workflows/config-hierarchy-nightly.yml` and require zero findings.
+- [x] Run `git diff --check` and inspect the full diff against every acceptance case in the design specification.
+- [x] Record commands, results, and the design-spec decision table in the validation document.
+- [x] Commit with message `docs: validate legacy config compatibility alias`.
 
 ## Task 5: Publish through the existing nightly pipeline
 
