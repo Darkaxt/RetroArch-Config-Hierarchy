@@ -1,7 +1,7 @@
 # RetroArch Legacy Default Config Alias Design
 
 **Date:** 2026-08-21
-**Status:** Approved for implementation
+**Status:** Implemented and source-validated; publication pending
 **Repository:** `Darkaxt/RetroArch-Config-Hierarchy`
 
 ## Purpose
@@ -35,12 +35,12 @@ This design supplements and narrows the explicit-override rule in `2026-08-10-re
 
 For a non-Play Android build, resolve the active master config as follows:
 
-1. Resolve the canonical public default through `UserPreferences.getDefaultConfigPath()`.
+1. Let the native Android environment resolver derive the shared storage root after startup permission handling.
 2. If `CONFIGFILE` is absent or empty, use the public default.
-3. If `CONFIGFILE` identifies the exact legacy app-specific default returned by `Context.getExternalFilesDir(null)/<active config filename>`, use the public default instead.
+3. If `CONFIGFILE` identifies the exact legacy app-specific default returned by `Context.getExternalFilesDir(null)/retroarch.cfg`, use the public default instead.
 4. Otherwise, preserve the explicit path unchanged and do not invoke default migration or initialization.
 
-The active filename remains subject to the existing `global_config_enable` policy. Comparison therefore uses the public and legacy paths for the same filename rather than hard-coding only `retroarch.cfg`.
+Upstream removed the Java launcher on 2026-08-21 and moved its absent-argument config policy into `frontend/drivers/platform_unix.c`. That upstream resolver now defines `retroarch.cfg` as the Android master filename, so the maintained patch follows the native policy instead of resurrecting the removed Java preference layer.
 
 Play Store builds do not apply the alias because their app-specific file remains their supported default.
 
@@ -48,13 +48,13 @@ Play Store builds do not apply the alias because their app-specific file remains
 
 Path comparison must recognize equivalent Android spellings such as `/sdcard/...` and `/storage/emulated/0/...` when the platform resolves them to the same file. It must not use a substring, package-name-only, parent-directory-only, or filename-only match.
 
-The resolver receives the explicit path, public default path, and legacy app-specific default path as separate values. It normalizes the two candidate paths using Java file canonicalization. If either path cannot be canonicalized, the resolver fails safe by preserving the explicit argument rather than redirecting an uncertain path.
+The resolver requires the exact `retroarch.cfg` basename and compares the requested parent with `Context.getExternalFilesDir(null)` after canonical symlink resolution. Canonicalizing the parent makes the identity check work even when the config file itself does not yet exist. If either parent cannot be canonicalized, the resolver fails safe by preserving the explicit argument.
 
 No symbolic links are created or required.
 
 ## Data Flow
 
-`MainMenuActivity` and `RetroActivityFuture` must use the same selection function:
+The native Android environment pass performs selection once, after storage derivation and before assigning `args->config_path`:
 
 ```text
 incoming CONFIGFILE
@@ -66,7 +66,7 @@ incoming CONFIGFILE
         +-- every other explicit path ----------> explicit path
 ```
 
-The selected path is passed to native RetroArch exactly once. Existing native save behavior then writes Save Current Configuration and save-on-exit changes to that selected file.
+The selected path becomes `args->config_path` exactly once. Existing native save behavior then writes Save Current Configuration and save-on-exit changes to that selected file.
 
 The inactive app-specific file is left untouched. It is neither a mirror nor a fallback after the public config exists.
 
@@ -80,7 +80,7 @@ The inactive app-specific file is left untouched. It is neither a mirror nor a f
 
 ## Tests
 
-Focused unit tests must prove:
+Regression tests and builds must prove:
 
 1. absent and empty explicit paths select the public default;
 2. the exact legacy app-specific default selects the public default on non-Play builds;
@@ -91,9 +91,9 @@ Focused unit tests must prove:
 7. canonicalization failure preserves the explicit path;
 8. a null legacy directory preserves explicit paths;
 9. Play policy retains the app-specific default;
-10. both `MainMenuActivity` and `RetroActivityFuture` use the shared selector.
+10. selection occurs after native storage derivation and before `args->config_path` assignment.
 
-Regression verification includes the complete config-hierarchy unit suite, Java compilation for published and Play variants, `git diff --check`, actionlint, and both Android release APK builds through the existing publication workflow.
+Source-boundary tests enforce native ordering, the exact basename/canonical-parent identity rule, and the custom/Play branches. Regression verification includes the complete config-hierarchy suite, Java compilation for published and Play variants, a native four-ABI normal build, `git diff --check`, actionlint, and both signed Android release APK builds through the existing publication workflow.
 
 ## Device Acceptance
 
