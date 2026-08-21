@@ -93,13 +93,13 @@ Tasks 1-4 below record the test-first implementation completed against the pre-2
 - Verify: `tools/config-hierarchy/release_state.json`
 
 - [x] Fetch `origin` and `upstream`, rebase the maintained stack onto current upstream after the launcher-removal conflict, and rerun the native regression/build gates plus `git diff --check`.
-- [ ] Push the verified branch tip to `origin/main` without force.
-- [ ] Inspect the newest completed upstream Android nightly pair and the fork release state.
-- [ ] Dispatch the existing `config-hierarchy-nightly.yml` workflow only when it can process a completed, unreleased upstream pair; otherwise remain attached until the next normal trigger can publish the code without creating a duplicate release.
-- [ ] Follow the workflow through completion and verify the public release rather than trusting workflow status alone.
-- [ ] Confirm the release is non-draft and has exactly `RetroArch.apk` and `RetroArch_aarch64.apk`.
-- [ ] Re-download both APKs under `D:\Temp` and verify SHA-256 hashes, ZIP integrity/alignment, package IDs, expected ABIs, monotonic shared version code, signer fingerprint `BD8C473A9E1C8F3FB83EE4549AEDCFE43E77E6960118E75B7DB90A32F3640D12`, and embedded fork/patch/source provenance.
-- [ ] Confirm no draft release or `config-hierarchy-staging` branch leaked.
+- [x] Push the verified rebased branch tip to `origin/main` with an exact guarded force-with-lease, matching the workflow's normal rebase transaction.
+- [x] Inspect the newest completed upstream Android nightly pair and the fork release state.
+- [x] Dispatch the existing `config-hierarchy-nightly.yml` workflow for the completed, unreleased 2026-08-20 pair.
+- [x] Follow workflow run `32489910370` through completion and verify the public release rather than trusting workflow status alone.
+- [x] Confirm the release is non-draft and has exactly `RetroArch.apk` and `RetroArch_aarch64.apk`.
+- [x] Re-download both APKs under `D:\Temp` and verify SHA-256 hashes, ZIP integrity/alignment, package IDs, expected ABIs, monotonic shared version code, signer fingerprint `BD8C473A9E1C8F3FB83EE4549AEDCFE43E77E6960118E75B7DB90A32F3640D12`, and embedded fork/patch/source provenance.
+- [x] Confirm no draft release or `config-hierarchy-staging` branch leaked.
 
 ## Task 6: Clean execution artifacts and hand off the device outcome
 
