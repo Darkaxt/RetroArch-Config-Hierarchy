@@ -451,6 +451,9 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertIn("official RetroArch APK must be uninstalled", body)
         self.assertIn("APK-reported revision: `31c4e00`", body)
         self.assertIn("Exact APK/source match: `false`", body)
+        self.assertIn("compatibility alias", body)
+        self.assertIn("no runtime copying or synchronization", body)
+        self.assertNotIn("migration from", body)
 
 
 class ReleaseOrchestrationTests(unittest.TestCase):
