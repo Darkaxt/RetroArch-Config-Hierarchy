@@ -1,5 +1,7 @@
 # RetroArch Config Hierarchy Design
 
+> **Implementation architecture update (2026-08-21):** Upstream removed the Java launcher and moved Android config derivation into `frontend/drivers/platform_unix.c`. The maintained fork now implements the public master and exact legacy-default alias there, with no runtime migration or copying. The current behavior contract is `2026-08-21-retroarch-legacy-config-alias-design.md`; Java launcher and automatic-migration sections below are retained as historical design context.
+
 | Field | Decision |
 | --- | --- |
 | Project | RetroArch-Config-Hierarchy |
