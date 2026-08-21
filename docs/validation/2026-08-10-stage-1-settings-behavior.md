@@ -1,5 +1,7 @@
 # Stage 1 Validation: Settings Behavior
 
+> Historical validation note: upstream removed the Java launcher on 2026-08-21. The maintained behavior was translated to the native Android environment resolver and revalidated in `2026-08-21-legacy-config-alias.md`; Java class and automatic-migration references below describe the pre-removal implementation only.
+
 Validated against `docs/superpowers/specs/2026-08-10-retroarch-config-hierarchy-design.md` on 2026-08-10.
 
 ## Automated evidence
