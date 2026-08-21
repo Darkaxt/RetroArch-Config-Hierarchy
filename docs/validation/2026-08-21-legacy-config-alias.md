@@ -4,7 +4,7 @@
 
 **Specification:** `docs/superpowers/specs/2026-08-21-retroarch-legacy-config-alias-design.md`
 
-**Stage:** Settings behavior and upstream rebase complete; publication pending
+**Stage:** Settings behavior, upstream rebase, and public release complete
 
 ## Result
 
@@ -58,4 +58,18 @@ The Play boolean is the value already obtained from `RetroActivityCommon.isPlayS
 - Gradle result: 155 tasks, 126 executed, 29 up-to-date, `BUILD SUCCESSFUL`.
 - Existing upstream warnings were limited to Android plugin/manifest deprecations and mbedTLS macro redefinitions.
 
-The signed `assembleNormalRelease` and `assembleAarch64Release` builds, signer/provenance checks, actionlint, final diff checks, and public two-asset verification remain Stage 2 gates in the existing nightly workflow.
+## Publication Evidence
+
+Workflow run `32489910370` completed successfully in 7m21s. It processed the completed upstream 2026-08-20 Android pair, rebased the maintained stack without conflict, built and signed both release variants, verified them, advanced `main` transactionally, re-downloaded the draft assets, and published prerelease `nightly-2026-08-20-8a275f1`.
+
+Independent post-publication verification established:
+
+- the release is non-draft and prerelease, with exactly `RetroArch.apk` and `RetroArch_aarch64.apk`;
+- SHA-256 is `5d4295ed882a9dfa267f8928807f699377882b640b83dd62416188d4db402baa` for `RetroArch.apk` and `5a75c211f4390cf5f594eb1f4fdc8c5c3eb4e86d16a99b24886fdffbf8b6d6a5` for `RetroArch_aarch64.apk`;
+- both ZIP archives pass full entry integrity and four-byte alignment checks;
+- packages are `com.retroarch` and `com.retroarch.aarch64` with expected four-ABI and two-ABI sets;
+- both assets share version `1.22.2_GIT` / code `1787320947`, monotonically above `1787163208`;
+- both assets use signer `BD8C473A9E1C8F3FB83EE4549AEDCFE43E77E6960118E75B7DB90A32F3640D12`;
+- embedded fork revision is `a893b8a4de8a`, patch identity is `android-public-config-v1`, and build source is upstream `8a275f147d0f65888fd6cd1ebee622e0d0c0d99b`;
+- the release honestly discloses APK-reported revision `0f23883` and `upstream_revision_exact: false`;
+- no draft release or `config-hierarchy-staging` branch remained after the transaction.
