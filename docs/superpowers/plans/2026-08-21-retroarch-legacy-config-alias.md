@@ -4,11 +4,23 @@
 
 **Goal:** Make the historical app-specific Android default config path a compatibility alias for the public RetroArch config while preserving every genuine caller-supplied custom path.
 
-**Architecture:** Centralize path selection in `ActiveConfigPath`, identify the exact app-specific default with the same active filename, and canonicalize only for identity comparison. Normalize the launch Intent before Android's native activity startup reads `CONFIGFILE`; retain existing public-default initialization and leave Play Store builds unchanged.
+**Architecture:** Upstream removed the Java launcher during implementation, so the final patch centralizes selection in `frontend/drivers/platform_unix.c`. It defers assignment of the Intent's `CONFIGFILE` until storage paths are known, aliases only the canonical historical app-specific default, and leaves every custom and Play path unchanged.
 
-**Tech Stack:** Java, Android intents and storage APIs, JUnit 4, Gradle, Python `unittest`, GitHub Actions.
+**Tech Stack:** C/JNI, Android intents and storage APIs, Gradle/NDK, Python `unittest`, GitHub Actions.
 
 ---
+
+## Upstream architecture adaptation
+
+Tasks 1-4 below record the test-first implementation completed against the pre-2026-08-21 Java launcher. During publication review, upstream commit `8075cbe77c` removed that launcher and made the Java files obsolete. The maintained stack was then rebased and translated test-first to the native environment resolver:
+
+- [x] Reproduce the scheduled rebase failure on the completed upstream pair.
+- [x] Trace the failure to upstream's Java-launcher removal and new native config derivation.
+- [x] Add three failing native source-boundary regressions.
+- [x] Implement public-default selection and the exact legacy alias in `platform_unix.c`.
+- [x] Preserve custom explicit paths and Play's app-specific probe order.
+- [x] Pass the 43-test config suite, all Gradle tests, both Play Java compilations, and a four-ABI normal native build.
+- [x] Update the specification, validation, README, operations, and release disclosure to describe the final no-copy native architecture.
 
 ## Task 1: Specify the compatibility selector with failing unit tests
 
@@ -80,7 +92,7 @@
 - Verify: `.github/workflows/config-hierarchy-nightly.yml`
 - Verify: `tools/config-hierarchy/release_state.json`
 
-- [ ] Fetch `origin` and `libretro`, rebase the feature branch onto current `origin/main` if necessary, and rerun the focused Java test plus `git diff --check` after any rebase.
+- [x] Fetch `origin` and `upstream`, rebase the maintained stack onto current upstream after the launcher-removal conflict, and rerun the native regression/build gates plus `git diff --check`.
 - [ ] Push the verified branch tip to `origin/main` without force.
 - [ ] Inspect the newest completed upstream Android nightly pair and the fork release state.
 - [ ] Dispatch the existing `config-hierarchy-nightly.yml` workflow only when it can process a completed, unreleased upstream pair; otherwise remain attached until the next normal trigger can publish the code without creating a duplicate release.
