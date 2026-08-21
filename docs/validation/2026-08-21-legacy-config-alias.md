@@ -1,53 +1,61 @@
 # Legacy Config Compatibility Alias Validation
 
-**Date:** 2026-08-21  
-**Specification:** `docs/superpowers/specs/2026-08-21-retroarch-legacy-config-alias-design.md`  
-**Stage:** Settings behavior complete; publication pending
+**Date:** 2026-08-21
+
+**Specification:** `docs/superpowers/specs/2026-08-21-retroarch-legacy-config-alias-design.md`
+
+**Stage:** Settings behavior and upstream rebase complete; publication pending
 
 ## Result
 
-Stage 1 satisfies the approved design. Non-Play modern Android builds treat only the historical app-specific default as an alias of the public master config. Arbitrary explicit `CONFIGFILE` paths remain authoritative, Play Store intent behavior is unchanged, and no file copying or synchronization was introduced.
+Stage 1 satisfies the approved behavior on upstream's current native-launcher architecture. Non-Play Android builds select the public master config for both an argument-free icon launch and the historical app-specific default supplied by a stock-oriented launcher. Every other explicit `CONFIGFILE` remains authoritative. Play behavior is retained, and no file copying or synchronization was introduced.
+
+## Upstream Architecture Change and Pipeline Failure
+
+Upstream commit `8075cbe77c` removed `MainMenuActivity` and its Java config resolver on 2026-08-21. Commits `69e002d27d` through `d67a52655e` moved absent-argument environment derivation, permission gating, config parsing, and direct launcher behavior into the native Android startup path.
+
+The previous maintained patch edited the deleted launcher. Every scheduled run for the completed 2026-08-21 upstream pair therefore failed deterministically while rebasing commit `8f2b3cb325`, with a modify/delete conflict for `MainMenuActivity.java` and content conflicts in `UserPreferences.java` and `RetroActivityFuture.java`. The patch stack was rebased onto upstream `8a275f147d0f65888fd6cd1ebee622e0d0c0d99b` and translated to `frontend/drivers/platform_unix.c`; obsolete Java resolver code and tests were not resurrected.
 
 ## Selection Contract
 
-| Input | Legacy candidate | Result | Evidence |
-| --- | --- | --- | --- |
-| Absent or empty `CONFIGFILE` | Any | Public default | `ActiveConfigPathTest.absentExplicitPathUsesDefaultResolver` and `emptyExplicitPathUsesDefaultResolver` |
-| Exact legacy default | Available | Public default | `exactLegacyDefaultUsesPublicDefault` |
-| Canonically equivalent legacy spelling | Available | Public default | `canonicallyEquivalentLegacyDefaultUsesPublicDefault` |
-| Custom sibling path | Available | Explicit path | `customSiblingPathRemainsExplicitWithoutResolvingDefault` |
-| Same filename elsewhere | Available | Explicit path | `sameFilenameElsewhereRemainsExplicit` |
-| Public path explicitly supplied | Available | Explicit public path | `explicitPublicPathRemainsExplicitWithoutResolvingDefault` |
-| Canonicalization fails | Available | Explicit path | `canonicalizationFailurePreservesExplicitPath` |
-| Legacy external directory unavailable | Null | Explicit path | `absentLegacyDefaultPreservesExplicitPath` |
-| Play Store direct launch | Disabled by build policy | Upstream Intent unchanged | `test_play_store_direct_launches_keep_upstream_intent_behavior` plus Play compilation |
+| Input | Build | Result |
+| --- | --- | --- |
+| Absent or empty `CONFIGFILE` | Non-Play | `<shared storage>/RetroArch/retroarch.cfg` |
+| Exact app-specific external default | Non-Play | Public master |
+| `/sdcard` or another canonically equivalent parent spelling | Non-Play | Public master |
+| Custom sibling config | Non-Play | Explicit path |
+| Same filename in any other directory | Non-Play | Explicit path |
+| Public path explicitly supplied | Non-Play | Explicit public path |
+| Canonical parent resolution fails | Non-Play | Explicit path |
+| App-specific external directory is unavailable | Non-Play | Explicit path |
+| Any explicit path | Play | Explicit path |
+| Absent `CONFIGFILE` | Play | Upstream app-specific probe order |
 
-The active filename is calculated once by `UserPreferences.getDefaultConfigFileName()` and reused for both public resolution and the legacy app-specific candidate. This retains the existing `global_config_enable` and per-core filename policy.
+`android_env_config_path_is_legacy_default()` requires the exact `retroarch.cfg` basename and compares canonical parent directories. Because it resolves the parent, the legacy file itself need not exist. `android_env_select_config_path()` preserves a requested path unless the build is non-Play and that exact identity test succeeds.
 
-## Launch Boundary
+## Native Startup Boundary
 
-The published `normal` and `aarch64` APKs share the modern `phoenix` sources. `MainMenuActivity` uses the shared selector before putting `CONFIGFILE` into the RetroActivity Intent. Direct external launches enter `RetroActivityFuture`, which rewrites that same Intent before `super.onCreate()`; native `platform_unix.c` therefore reads the selected path during startup. Incoming intents are likewise normalized before `super.onNewIntent()` and before restart or `setIntent()` handling.
+`frontend_unix_get_env()` stores the raw Intent extra in `requested_config_path` without assigning `args->config_path`. It first derives application and storage paths, then calls `android_env_select_config_path()`, logs the selected path, and assigns it to `args->config_path`. This one boundary covers direct icon launches, CocoonShell launches, both published package IDs, and other external launchers.
 
-Jelly Bean and legacy Android front ends are not built into the two published nightly APKs and retain their existing behavior. Core sideload, subordinate config directories, native command-line `-c`, overrides, remaps, and core options are outside this master-Intent boundary and were not changed.
+The Play boolean is the value already obtained from `RetroActivityCommon.isPlayStoreBuild()`. Play's existing external/internal probe order is preserved inside the selector. Native command-line `-c`, desktop behavior, overrides, remaps, core options, and subordinate directories were not changed.
 
 ## Prohibited Mechanisms Audit
 
 - No timestamp comparison was added.
 - No public-to-private or private-to-public copy was added.
-- No legacy file is created, rewritten, deleted, or used as fallback after alias selection.
+- No legacy file is created, rewritten, deleted, or used as a fallback after alias selection.
 - No RetroAchievements or credential-specific key appears in the patch.
 - No symlink, merge rule, or background synchronization was added.
-- Canonicalization failure and a null legacy directory both preserve the explicit argument.
+- Canonicalization failure and a null app-specific external directory both preserve the explicit argument.
 
 ## Verification Evidence
 
-- Red phase: the focused Java test compilation failed with seven missing-selector overload errors before production implementation.
-- Focused Java selector suite: 10 tests, 0 failures, 0 errors.
-- Complete `testNormalDebugUnitTest`: 22 tests, 0 failures, 0 errors.
-- Android wiring regression: 4 tests passed, including startup/new-intent ordering and Play isolation.
-- Complete config-hierarchy suite: 44 tests passed.
-- `compileNormalDebugJavaWithJavac`, `compilePlayStoreNormalReleaseJavaWithJavac`, and `compilePlayStorePlusReleaseJavaWithJavac`: successful.
-- `D:\Tools\actionlint-1.7.12\actionlint.exe .github/workflows/config-hierarchy-nightly.yml`: exit 0.
-- `git diff --check`: exit 0.
+- Red phase: three native source-boundary regressions failed before the translated selector existed.
+- Green phase: all 3 native alias regressions passed.
+- Complete config-hierarchy suite: 43 tests passed.
+- Gradle `test`, both Play release Java compilations, and `assembleNormalDebug`: successful in one invocation.
+- Native compilation succeeded for `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`.
+- Gradle result: 155 tasks, 126 executed, 29 up-to-date, `BUILD SUCCESSFUL`.
+- Existing upstream warnings were limited to Android plugin/manifest deprecations and mbedTLS macro redefinitions.
 
-Gradle emitted only existing Android plugin deprecation, manifest, and 32-bit flavor warnings. The signed `assembleNormalRelease` and `assembleAarch64Release` builds, signer/provenance checks, and public two-asset verification remain Stage 2 gates in the existing nightly workflow.
+The signed `assembleNormalRelease` and `assembleAarch64Release` builds, signer/provenance checks, actionlint, final diff checks, and public two-asset verification remain Stage 2 gates in the existing nightly workflow.
