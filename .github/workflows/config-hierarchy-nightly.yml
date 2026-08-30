@@ -93,7 +93,11 @@ jobs:
           echo "UPSTREAM_APK_REVISION=$(jq -r '.upstream_apk_revision' "$RUNNER_TEMP/resolution.json")" >> "$GITHUB_ENV"
           echo "UPSTREAM_REVISION_EXACT=$(jq -r '.upstream_revision_exact' "$RUNNER_TEMP/resolution.json")" >> "$GITHUB_ENV"
           if [[ "$(jq -r '.upstream_revision_exact' "$RUNNER_TEMP/resolution.json")" != "true" ]]; then
-            echo "::warning::Upstream APK revision is not public; building from upstream/master and disclosing the mismatch."
+            if [[ "$(jq -r '.upstream_apk_revision' "$RUNNER_TEMP/resolution.json")" == "unavailable" ]]; then
+              echo "::warning::Upstream APKs do not embed a Git revision; building from upstream/master and disclosing that the APK revision is unavailable."
+            else
+              echo "::warning::Upstream APK revision is not public; building from upstream/master and disclosing the mismatch."
+            fi
           fi
 
       - name: Rebase maintained patch stack onto selected public upstream source
