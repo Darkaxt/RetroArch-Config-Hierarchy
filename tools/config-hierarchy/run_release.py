@@ -268,8 +268,8 @@ def command_download(args):
 
 
 def command_resolve(args):
-    normal_revision = extract_revision_from_apk(args.normal_apk)
-    aarch64_revision = extract_revision_from_apk(args.aarch64_apk)
+    normal_revision = extract_revision_from_apk(args.normal_apk, allow_missing=True)
+    aarch64_revision = extract_revision_from_apk(args.aarch64_apk, allow_missing=True)
     resolution = nightly_pipeline.select_build_revision(
         normal_revision,
         aarch64_revision,
