@@ -12,8 +12,14 @@ SYMBOL_NAME = "retroarch_git_version"
 REVISION_PATTERN = re.compile(rb"[0-9a-fA-F]{7,40}")
 
 
-def extract_revision_from_apk(apk_path):
+class ElfSymbolNotFound(ValueError):
+    pass
+
+
+def extract_revision_from_apk(apk_path, allow_missing=False):
     revisions = {}
+    missing = []
+    libraries = []
     with zipfile.ZipFile(apk_path) as archive:
         bad_entry = archive.testzip()
         if bad_entry:
@@ -21,13 +27,29 @@ def extract_revision_from_apk(apk_path):
         for name in archive.namelist():
             if not re.fullmatch(r"lib/[^/]+/libretroarch-activity\.so", name):
                 continue
-            revision = extract_elf_symbol(archive.read(name), SYMBOL_NAME).rstrip(b"\0").decode("ascii")
+            libraries.append(name)
+            try:
+                revision = extract_elf_symbol(archive.read(name), SYMBOL_NAME).decode("ascii")
+            except ElfSymbolNotFound:
+                missing.append(name)
+                continue
             if not REVISION_PATTERN.fullmatch(revision.encode("ascii")):
                 raise ValueError(f"Invalid RetroArch Git revision in {name}: {revision!r}")
             revisions[name] = revision.lower()
 
-    if not revisions:
+    if not libraries:
         raise ValueError("APK contains no libretroarch-activity.so")
+    if missing:
+        if revisions:
+            raise ValueError(
+                "APK native libraries have inconsistent Git revision availability: "
+                f"present in {sorted(revisions)}, missing from {sorted(missing)}"
+            )
+        if allow_missing:
+            return None
+        raise ElfSymbolNotFound(
+            "APK native libraries do not embed retroarch_git_version"
+        )
     unique = set(revisions.values())
     if len(unique) != 1:
         raise ValueError(f"APK native libraries contain divergent revisions: {revisions}")
@@ -109,7 +131,7 @@ def extract_elf_symbol(image, requested_name):
             return _slice(
                 image, target["offset"] + relative, size, f"ELF symbol {requested_name}"
             ).rstrip(b"\0")
-    raise ValueError(f"ELF symbol not found: {requested_name}")
+    raise ElfSymbolNotFound(f"ELF symbol not found: {requested_name}")
 
 
 def _slice(data, offset, size, label):
