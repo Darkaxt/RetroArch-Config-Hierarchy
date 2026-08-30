@@ -16,7 +16,7 @@
 
 RetroArch-Config-Hierarchy is a minimal Android-focused overlay on upstream RetroArch. It makes the public Android configuration tree authoritative for ordinary user launches while preserving explicit `CONFIGFILE` overrides for launchers, companion applications, and other intentional integrations.
 
-The fork follows upstream Android nightlies. It does not become an independently evolving RetroArch distribution. Each release is built from the exact RetroArch source revision identified in a completed upstream Android nightly when that revision is public. If the APK-reported revision is not public, the release uses the current full `upstream/master` revision and discloses both revisions plus the non-exact relationship. A small reviewed patch implements the public configuration hierarchy in either case.
+The fork follows upstream Android nightlies. It does not become an independently evolving RetroArch distribution. Each release is built from the exact RetroArch source revision identified in a completed upstream Android nightly when that revision is public. If the APK-reported revision is not public, or if every ABI in both APKs consistently omits the revision, the release uses the current full `upstream/master` revision and discloses the reported revision or `unavailable` plus the non-exact relationship. A small reviewed patch implements the public configuration hierarchy in either case.
 
 ## User Contract
 
@@ -205,14 +205,14 @@ A full, structurally valid download is the completion check. Truncated or changi
 
 Both upstream APKs are inspected for their embedded RetroArch Git revision. The pipeline requires:
 
-- a revision can be extracted from each APK;
-- both APKs report the same revision;
+- both APKs and all their native ABIs either report the same revision or consistently omit it;
+- mixed revision availability or divergent reported revisions fail closed;
 - the revision is not older than the previously released upstream baseline unless manually approved;
 - the upstream APK filenames match the nightly date being processed.
 
-If the reported revision resolves unambiguously in `libretro/RetroArch`, that exact full commit is the required build base. If it does not resolve publicly, the only permitted fallback is the current full `upstream/master` commit. The pipeline embeds and publishes the APK-reported revision, official APK hashes, selected full build revision, and `upstream_revision_exact: false`; it never presents the fallback as an exact reconstruction of the official APK source.
+If the reported revision resolves unambiguously in `libretro/RetroArch`, that exact full commit is the required build base. If it does not resolve publicly, or both APKs consistently omit it, the only permitted fallback is the current full `upstream/master` commit. The pipeline embeds and publishes the APK-reported revision or `unavailable`, official APK hashes, selected full build revision, and `upstream_revision_exact: false`; it never presents the fallback as an exact reconstruction of the official APK source.
 
-If extraction becomes incompatible with upstream packaging, the pipeline stops before patching or publishing. Repairing provenance extraction is a reviewed maintenance change.
+If extraction becomes incompatible with upstream packaging in any other way, the pipeline stops before patching or publishing. Repairing provenance extraction is a reviewed maintenance change.
 
 ## Patch Stack and Branch Model
 
@@ -300,7 +300,7 @@ The pipeline publishes nothing and leaves the maintained branch and last good re
 
 - incomplete upstream artifact pair;
 - invalid upstream APK;
-- missing or divergent embedded Git revision;
+- mixed, invalid, or divergent embedded Git revision evidence;
 - upstream revision rollback;
 - patch conflict;
 - source or dependency build failure;
@@ -360,6 +360,8 @@ The workflow exposes the failing stage in GitHub Actions. It does not silently s
 - Completed normal and AArch64 pair triggers once.
 - Missed completed dates are discovered on a later heartbeat.
 - Divergent embedded upstream revisions block publication.
+- Consistent revision omission across both APKs selects the disclosed public fallback.
+- Mixed embedded-revision availability blocks publication.
 - Repeated heartbeat for a released date is a no-op.
 - Patch conflict blocks branch advancement.
 - Missing signing inputs fail before build publication.
@@ -380,7 +382,7 @@ The project is ready for its first public prerelease when all of the following a
 7. Existing override, core-option and remap behavior remains functional.
 8. Play variants retain their current app-specific policy and compile successfully.
 9. The workflow waits for both upstream Android nightly variants.
-10. The build base equals the revision embedded in both upstream APKs when it is public; otherwise the release uses the current full `upstream/master` revision and discloses both revisions, official APK hashes, and non-exact status.
+10. The build base equals the revision embedded in both upstream APKs when it is public; otherwise the release uses the current full `upstream/master` revision and discloses the reported revision or `unavailable`, official APK hashes, and non-exact status.
 11. Both fork variants are built in one release run and pass all signer, package, ABI, version, alignment, integrity and provenance checks.
 12. The GitHub prerelease contains exactly `RetroArch.apk` and `RetroArch_aarch64.apk`; the tag and notes carry the upstream date.
 13. The manually migrated Thor config survives official-app uninstall and becomes the proven active config in the first fork installation.
