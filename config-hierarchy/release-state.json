@@ -1,28 +1,28 @@
 {
-  "date": "2026-08-22",
-  "nightly_date": "2026-08-22",
+  "date": "2026-09-18",
+  "nightly_date": "2026-09-18",
   "patch_revision": "android-public-config-v1",
   "schema": 1,
   "upstream_apk_remote": {
     "aarch64": {
-      "content_length": "194192348",
-      "etag": "\"2294084670\"",
-      "last_modified": "Sat, 22 Aug 2026 01:10:19 GMT",
-      "url": "https://buildbot.libretro.com/nightly/android/2026-08-22-RetroArch_aarch64.apk"
+      "content_length": "193106373",
+      "etag": "\"929038226\"",
+      "last_modified": "Fri, 18 Sep 2026 02:07:26 GMT",
+      "url": "https://buildbot.libretro.com/nightly/android/2026-09-18-RetroArch_aarch64.apk"
     },
     "normal": {
-      "content_length": "207055286",
-      "etag": "\"3934569879\"",
-      "last_modified": "Sat, 22 Aug 2026 01:13:43 GMT",
-      "url": "https://buildbot.libretro.com/nightly/android/2026-08-22-RetroArch.apk"
+      "content_length": "206510022",
+      "etag": "\"3260162614\"",
+      "last_modified": "Fri, 18 Sep 2026 02:10:55 GMT",
+      "url": "https://buildbot.libretro.com/nightly/android/2026-09-18-RetroArch.apk"
     }
   },
-  "upstream_apk_revision": "0f23883",
+  "upstream_apk_revision": "unavailable",
   "upstream_apk_sha256": {
-    "aarch64": "83b89e9db1a41310d9dc179cbbc0595727cd2a9710cc01cc68a0e075acdbd6b6",
-    "normal": "1ea0c1bbd187c9132ce817b91a8bd24647af715cfb682c6a9cfd74ee7030c926"
+    "aarch64": "f2a207b2e42c6e4b13687a877ac83e4b9a82afab920bc47fa8a87c456c7882ca",
+    "normal": "d9854a79f7e3015a2c57e8697ee5a006994247d57d8485ff418ab0576723cb94"
   },
-  "upstream_revision": "a065e6b7d98b9876e604c73cd8b3fcf5b63eb22f",
+  "upstream_revision": "df9d42abeacdb3e8816864e7eb3808faf4b18347",
   "upstream_revision_exact": false,
-  "version_code": 1787374443
+  "version_code": 1789713844
 }
