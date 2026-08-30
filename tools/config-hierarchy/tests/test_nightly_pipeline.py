@@ -73,6 +73,15 @@ class NightlyDiscoveryTests(unittest.TestCase):
         self.assertEqual(exact, resolution.build_revision)
         self.assertTrue(resolution.exact)
 
+    def test_missing_embedded_revision_uses_disclosed_public_fallback(self):
+        fallback = "b" * 40
+        resolution = nightly_pipeline.select_build_revision(
+            None, None, lambda value: None, fallback
+        )
+        self.assertEqual("unavailable", resolution.apk_reported_revision)
+        self.assertEqual(fallback, resolution.build_revision)
+        self.assertFalse(resolution.exact)
+
     def test_revision_rollback_is_rejected(self):
         with self.assertRaisesRegex(nightly_pipeline.ProvenanceError, "rollback"):
             nightly_pipeline.ensure_forward_revision("old", "new", lambda old, new: False)
@@ -316,6 +325,14 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn('"$release_dir/${date}-RetroArch.apk"', publication)
         self.assertNotIn('"$release_dir/${date}-RetroArch_aarch64.apk"', publication)
 
+    def test_missing_upstream_revision_has_an_honest_workflow_warning(self):
+        repository = TOOLS_DIR.parents[1]
+        workflow = (repository / ".github/workflows/config-hierarchy-nightly.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('== "unavailable"', workflow)
+        self.assertIn("Upstream APKs do not embed a Git revision", workflow)
+
 
 class ElfRevisionTests(unittest.TestCase):
     def test_extracts_revision_from_named_elf_symbol(self):
@@ -360,6 +377,41 @@ class ElfRevisionTests(unittest.TestCase):
                 )
             with self.assertRaisesRegex(ValueError, "divergent"):
                 extract_apk_revision.extract_revision_from_apk(apk)
+
+    def test_upstream_apk_may_omit_git_revision_from_every_abi(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk = Path(directory) / "fixture.apk"
+            with zipfile.ZipFile(apk, "w") as archive:
+                archive.writestr(
+                    "lib/arm64-v8a/libretroarch-activity.so",
+                    build_elf64_with_symbol("other_symbol", b"value\0"),
+                )
+                archive.writestr(
+                    "lib/x86_64/libretroarch-activity.so",
+                    build_elf64_with_symbol("other_symbol", b"value\0"),
+                )
+            self.assertIsNone(
+                extract_apk_revision.extract_revision_from_apk(
+                    apk, allow_missing=True
+                )
+            )
+
+    def test_upstream_apk_rejects_mixed_git_revision_availability(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk = Path(directory) / "fixture.apk"
+            with zipfile.ZipFile(apk, "w") as archive:
+                archive.writestr(
+                    "lib/arm64-v8a/libretroarch-activity.so",
+                    build_elf64_with_symbol("retroarch_git_version", b"abc1234\0"),
+                )
+                archive.writestr(
+                    "lib/x86_64/libretroarch-activity.so",
+                    build_elf64_with_symbol("other_symbol", b"value\0"),
+                )
+            with self.assertRaisesRegex(ValueError, "inconsistent"):
+                extract_apk_revision.extract_revision_from_apk(
+                    apk, allow_missing=True
+                )
 
 
 class ReleaseVerificationTests(unittest.TestCase):
