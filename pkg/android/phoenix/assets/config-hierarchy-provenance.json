@@ -1,12 +1,12 @@
 {
-  "nightly_date": "2026-08-22",
+  "nightly_date": "2026-10-11",
   "patch_revision": "android-public-config-v1",
   "schema": 1,
-  "upstream_apk_revision": "0f23883",
+  "upstream_apk_revision": "unavailable",
   "upstream_apk_sha256": {
-    "aarch64": "83b89e9db1a41310d9dc179cbbc0595727cd2a9710cc01cc68a0e075acdbd6b6",
-    "normal": "1ea0c1bbd187c9132ce817b91a8bd24647af715cfb682c6a9cfd74ee7030c926"
+    "aarch64": "e1fe77ffd950dabf4c62ba6afccae0d6fa393cd3b42fd35ff0ed5b1a8510d140",
+    "normal": "449a0df5866d7f89363ed576f0c0d5c293d67b8715c3a8bbef3e2423dd91efc9"
   },
-  "upstream_revision": "a065e6b7d98b9876e604c73cd8b3fcf5b63eb22f",
+  "upstream_revision": "cdc286f851d4f04264b7ef88ca63d8c357409fd5",
   "upstream_revision_exact": false
 }
