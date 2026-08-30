@@ -65,6 +65,14 @@ def select_build_revision(
             "Upstream APKs contain divergent RetroArch revisions: "
             f"{normal_revision} != {aarch64_revision}"
         )
+    if normal_revision is None:
+        if fallback_revision and re.fullmatch(r"[0-9a-fA-F]{40}", fallback_revision):
+            return RevisionResolution(
+                "unavailable", fallback_revision.lower(), False
+            )
+        raise ProvenanceError(
+            "Upstream APKs do not embed a Git revision and no full public fallback is available"
+        )
     full_revision = resolver(normal_revision)
     if full_revision and re.fullmatch(r"[0-9a-fA-F]{40}", full_revision):
         return RevisionResolution(normal_revision, full_revision.lower(), True)
