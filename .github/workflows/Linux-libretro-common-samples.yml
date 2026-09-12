@@ -495,7 +495,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Cache emsdk
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.EM_CACHE_FOLDER }}
           key: ${{ env.EM_VERSION }}-${{ runner.os }}
